@@ -7,7 +7,7 @@ pub use bitcoin_script::{define_pushable, script};
 define_pushable!();
 pub use bitcoin::ScriptBuf as Script;
 
-use crate::debugger::{execute_step, show_altstack, show_stack, StepResult};
+use crate::debugger::{execute_step, print_execute_step, show_altstack, show_stack, StepResult};
 use super::script_util::*;
 
 
@@ -485,10 +485,21 @@ impl StackTracker {
     }
 
     pub fn op_swap(&mut self) {
+        let x = self.data.pop_stack();
+        let y = self.data.pop_stack();
+        self.data.push_stack(x);
+        self.data.push_stack(y);
+
         self.op(OP_SWAP, 0, false, "OP_SWAP()");
     }
 
     pub fn op_rot(&mut self) {
+        let x = self.data.pop_stack();
+        let y = self.data.pop_stack();
+        let z = self.data.pop_stack();
+        self.data.push_stack(y);
+        self.data.push_stack(x);
+        self.data.push_stack(z);
         self.op(OP_ROT, 0, false, "OP_ROT()");
     }
 
@@ -535,10 +546,7 @@ impl StackTracker {
 
     pub fn debug(&mut self, and_panic: bool) {
         println!("Max stack size: {}", self.max_stack_size);
-        self.show_stack();
-        self.show_altstack();
-        self.custom(script!{ OP_DEPTH OP_TOALTSTACK}, 0, false, 1, "breakpoint");
-        self.run();
+        print_execute_step(self, self.script.len()-1);
         if and_panic {
             panic!("Debugging");
         }
@@ -761,9 +769,46 @@ mod tests {
         show_stack(&new_data, vec![]);
         show_altstack(&new_data, vec![]);
 
+    }
 
+    #[test]
+    fn test_op_rot() {
+        let mut stack = StackTracker::new();
+
+        stack.number(1);
+        let x = stack.number(2);
+        stack.number(3);
+        stack.op_rot();
+        stack.number(1);
+        stack.op_equalverify();
+
+        stack.number(3);
+        stack.op_equalverify();
+
+        stack.drop(x);
+        
+        stack.op_true();
+
+        assert!(stack.run().success);
 
     }
 
+    #[test]
+    fn test_op_swap() {
+        let mut stack = StackTracker::new();
+
+        stack.number(1);
+        let x = stack.number(2);
+        stack.op_swap();
+        stack.number(1);
+        stack.op_equalverify();
+
+        stack.drop(x);
+        
+        stack.op_true();
+
+        assert!(stack.run().success);
+
+    }
 
 }
