@@ -3,6 +3,8 @@ use std::io::Stdout;
 use std::io::stdout;
 
 use crossterm::style::SetBackgroundColor;
+use crossterm::terminal::disable_raw_mode;
+use crossterm::terminal::enable_raw_mode;
 use crossterm::{
     execute,
     style::{Color, Print, ResetColor, SetForegroundColor, SetAttribute, Attribute},
@@ -44,8 +46,22 @@ fn print_cut_text(text: &str) {
     execute!(
         stdout,
         Print(cut_text),
-        Print("\n")
+        Print("\r\n")
     ).unwrap();
+}
+fn print_stack_line(i:usize, s: &str, trim:bool) {
+    let mut stdout = stdout();
+    if i % 2 == 0 {
+        execute!(stdout, SetBackgroundColor(Color::Rgb{r:30,g:30,b:30})).unwrap();
+    } else {
+        execute!(stdout, SetBackgroundColor(Color::Rgb{r:20,g:20,b:20})).unwrap();
+    }
+    if trim {
+        print_cut_text(s);
+    } else {
+        print!("{}\r\n", s);
+    }
+    execute!(stdout, SetBackgroundColor(Color::Reset)).unwrap();
 }
 
 fn show_step(stdout : &mut Stdout, stack: &StackTracker, step: usize, bp_name: &str, trim: bool) {
@@ -70,17 +86,17 @@ fn show_step(stdout : &mut Stdout, stack: &StackTracker, step: usize, bp_name: &
     show_command(stdout, "+Shift", " (x10) | ");
     show_command(stdout, "t", " (trim) | ");
     show_command(stdout, "q", " (exit)");
-    println!();
     execute!(stdout, 
+                Print("\r\n"),
                 SetForegroundColor(Color::Blue), Print("Step: "), ResetColor,
                 Print(step),
                 SetForegroundColor(Color::Blue), Print(" BP: "), ResetColor,
                 Print(bp_name),
             ).unwrap();
-    println!();
 
     let res = execute_step(stack, step);
     execute!(stdout, 
+        Print("\r\n"),
         Print("Last opcode: "),
         SetForegroundColor(Color::DarkGrey), 
         Print(res.last_opcode),
@@ -106,35 +122,15 @@ fn show_step(stdout : &mut Stdout, stack: &StackTracker, step: usize, bp_name: &
             ResetColor,
         ).unwrap();
     }
-    println!();
+    print!("\r\n");
 
-    println!("======= STACK: ======");
+    print!("======= STACK: ======\r\n");
     for (i, s) in res.stack.iter().enumerate() {
-        if i % 2 == 0 {
-            execute!(stdout, SetBackgroundColor(Color::Rgb{r:30,g:30,b:30})).unwrap();
-        } else {
-            execute!(stdout, SetBackgroundColor(Color::Rgb{r:20,g:20,b:20})).unwrap();
-        }
-        if trim {
-            print_cut_text(s);
-        } else {
-            println!("{}", s);
-        }
-        execute!(stdout, SetBackgroundColor(Color::Reset)).unwrap();
+        print_stack_line(i, s, trim);
     }
-    println!("==== ALT-STACK: ====");
+    print!("==== ALT-STACK: ====\r\n");
     for (i,s) in res.altstack.iter().enumerate() {
-        if i % 2 == 0 {
-            execute!(stdout, SetBackgroundColor(Color::Rgb{r:30,g:30,b:30})).unwrap();
-        } else {
-            execute!(stdout, SetBackgroundColor(Color::Rgb{r:20,g:20,b:20})).unwrap();
-        }
-        if trim {
-            print_cut_text(s);
-        } else {
-            println!("{}", s);
-        }
-        execute!(stdout, SetBackgroundColor(Color::Reset)).unwrap();
+        print_stack_line(i, s, trim);
     }
 
 
@@ -143,6 +139,8 @@ fn show_step(stdout : &mut Stdout, stack: &StackTracker, step: usize, bp_name: &
 
 pub fn interactive(stack: &StackTracker) {
     let mut stdout = stdout();
+
+    enable_raw_mode().expect("Failed to enable raw mode");
 
     show_step(&mut stdout, stack, 0, "start", true);
 
@@ -227,6 +225,7 @@ pub fn interactive(stack: &StackTracker) {
 
     // Leave alternate screen to return to the normal terminal state
     stdout.execute(LeaveAlternateScreen).unwrap();
+    disable_raw_mode().expect("Failed to disable raw mode");
 }
 
 
