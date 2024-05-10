@@ -88,3 +88,10 @@ At some point conditionals might be implemented as part of the lib, allowing deb
 ### OP_IFDUP
 As this op modifies the stack depth at runtime it is not possible to implement it here.
 
+-----
+
+### TODO:
+List of pending tasks:
+- Support long hex or string elements on the stack
+- Crypto functions
+- Define transaction templates to validate withness inputs 
