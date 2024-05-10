@@ -1,13 +1,13 @@
 ### Disclaimer
-This is a work in progress library.
+This is a work in progress library and future changes might break backward compatibility. 
 
 ### Bitcoin Script Stack
 
 This library aims to help in the development of complex bitcoin scripts.
 
-On the process of creating an optimized version of SHA256 on chain, was necessary to track the position of moving parts on the stack and a lot of debugging effort.
+In the process of creating an optimized version of SHA256 on chain, it was necessary to track the position of moving parts on the stack and a lot of debugging effort.
 
-StackTracker and StackVariable are the core parts of this lib and as this an example of ussage it that allows to do the following:
+StackTracker and StackVariable are the core parts of this lib and as this an example of usage it that allows to do the following:
 ```
 let mut stack = StackTracker::new();    //creates the tracker
                                         // STACK:
@@ -24,7 +24,7 @@ assert!(stack.run().success)
 ### Debugging
 Debugging the scripts
 
-On any moment that StackTracker objects is being constructed is possible to debug it's internal state using the functions inside debugger.
+An any moment that StackTracker objects are being constructed it is possible to debug its internal state using the functions inside the debugger.
 i.e:
 
 ```
@@ -49,7 +49,7 @@ id: 3       | size: 1       | name: copy(number(0x1))    |  1
 ```
 
 ### Interactive Debugging
-There is also an interactive debugger that allows to run the script step by step.
+There is also an interactive debugger that allows running the script step by step.
 Take a look to [examples/interactive.rs](examples/interactive.rs)
 To enable it it requires `--features interactive`
 
@@ -64,14 +64,27 @@ id: 2       | size: 1       | name: number(0xa)          |  a
 id: 7       | size: 1       | name: OP_ADD()             |  8
 ```
 
-### Breakpoint
-When writing complex functions or sripts that performs a lot of operations tracking the right step becomes a challenge.
+### Breakpoints
+When writing complex functions or scripts that perform a lot of operations, tracking the right step becomes a challenge.
 So it's is possible to set up breakpoints that will make the debugging easier.
 ```
-stack.custom(....)                          // some coplex operation
+stack.custom(....)                          // some complex operation
 stack.set_breakpoint("breakpoint-name-1");  // set breakpoint
 ```
 
+### OP_ROLL
+Op roll is not implemented as direct operation as the modification of the stack can not be calculated in advance.
+Use `move_var` and `move_var_sub_n` to achieve the same goal, and take advantage of position tracking.
 
 
+### Conditionals
+For now, conditional branches are not supported as operations.
+Nonetheless conditionals that on each branch result in the same amount of variables consumed and produced can be implemented using the `custom` function and `define` to specify the resulting vars.
+Take a look at `test_conditional` on [src/stack.rs](src/stack.rs) as an example.
+
+At some point conditionals might be implemented as part of the lib, allowing debugging of each branch.
+
+
+### OP_IFDUP
+As this op modifies the stack depth at runtime it is not possible to implement it here.
 

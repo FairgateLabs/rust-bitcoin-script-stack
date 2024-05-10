@@ -1069,5 +1069,33 @@ mod tests {
 
     }
 
+    #[test]
+    fn test_conditional() {
+        let mut stack = StackTracker::new();
+
+        stack.number(1);
+        stack.number(2);
+        stack.debug();
+        stack.custom(script!{ 
+            OP_DUP
+            2
+            OP_EQUAL
+            OP_IF
+                OP_1ADD
+            OP_ELSE
+                OP_1SUB
+            OP_ENDIF
+        }, 1, true, 0, "cond");
+
+        stack.debug();
+        stack.number(3);
+        stack.debug();
+        stack.op_equalverify();
+
+        stack.debug();
+        assert!(stack.run().success);
+
+    }
+
 
 }
