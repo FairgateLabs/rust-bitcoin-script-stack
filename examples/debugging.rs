@@ -1,4 +1,4 @@
-use bitcoin_script_stack::{debugger::print_execute_step, stack::StackTracker};
+use bitcoin_script_stack::stack::StackTracker;
 
 
 
@@ -9,7 +9,7 @@ pub fn main() {
     let var2 = stack.number(10);        
     let _ = stack.copy_var(var1);   
     
-    print_execute_step(&stack, 2);
+    stack.debug();
 
     stack.move_var(var2);
     stack.drop(var2);      

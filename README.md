@@ -34,7 +34,7 @@ let var1 = stack.number(1);             // 1
 let mut var2 = stack.number(10);        // 1 10
 let copy_of_1 = stack.copy_var(var1);   // 1 10 1
 ....
-print_execute_step(&stack, 3);
+stack.debug();
 ...
 
 ```
