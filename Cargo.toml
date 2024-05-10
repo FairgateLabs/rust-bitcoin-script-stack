@@ -12,7 +12,6 @@ bitcoin-scriptexec = { git = "https://github.com/BitVM/rust-bitcoin-scriptexec/"
 crossterm = { version = "0.27.0", optional = true}
 
 [features]
-default = ["interactive"]
 interactive = ["crossterm"]
 
 [patch.crates-io.base58check]
