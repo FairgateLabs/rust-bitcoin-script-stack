@@ -654,6 +654,12 @@ impl StackTracker {
         (x, self.op(OP_2DUP, 0, true, "OP_DUP").unwrap())
     }
 
+    pub fn op_3dup(&mut self) -> (StackVariable, StackVariable, StackVariable) {
+        let x = self.define(1, "OP_DUP");
+        let y = self.define(1, "OP_DUP");
+        (x, y, self.op(OP_3DUP, 0, true, "OP_DUP").unwrap())
+    }
+
 
     pub fn get_value_from_table(&mut self, table: StackVariable, offset: Option<u32> ) -> StackVariable {
         self.number(self.get_offset(table)-1 + offset.unwrap_or(0));
