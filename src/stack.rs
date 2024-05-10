@@ -472,6 +472,10 @@ impl StackTracker {
         self.op(OP_NEGATE, 1, true, "OP_NEGATE()").unwrap()
     }
 
+    pub fn op_abs(&mut self) -> StackVariable {
+        self.op(OP_ABS, 1, true, "OP_ABS()").unwrap()
+    }
+
     pub fn op_add(&mut self) -> StackVariable {
         self.op(OP_ADD, 2, true, "OP_ADD()").unwrap()
     }
@@ -480,8 +484,84 @@ impl StackTracker {
         self.op(OP_SUB, 2, true, "OP_SUB()").unwrap()
     }
 
+    pub fn op_min(&mut self) -> StackVariable {
+        self.op(OP_MIN, 2, true, "OP_MIN()").unwrap()
+    }
+
+    pub fn op_max(&mut self) -> StackVariable {
+        self.op(OP_MAX, 2, true, "OP_MAX()").unwrap()
+    }
+
+    pub fn op_within(&mut self) -> StackVariable {
+        self.op(OP_WITHIN, 3, true, "OP_WITHIN()").unwrap()
+    }
+
+    pub fn op_1add(&mut self) -> StackVariable {
+        self.op(OP_1ADD, 1, true, "OP_1ADD()").unwrap()
+    }
+
+    pub fn op_1sub(&mut self) -> StackVariable {
+        self.op(OP_1SUB, 1, true, "OP_1SUB()").unwrap()
+    }
+
+    pub fn op_not(&mut self) -> StackVariable {
+        self.op(OP_NOT, 1, true, "OP_NOT()").unwrap()
+    }
+
+    pub fn op_booland(&mut self) -> StackVariable {
+        self.op(OP_BOOLAND, 2, true, "OP_BOOLAND()").unwrap()
+    }
+
+    pub fn op_boolor(&mut self) -> StackVariable {
+        self.op(OP_BOOLOR, 2, true, "OP_BOOLOR()").unwrap()
+    }
+
+    pub fn op_equal(&mut self) -> StackVariable {
+        self.op(OP_EQUAL, 2, true, "OP_EQUAL()").unwrap()
+    }
+
+    pub fn op_numequal(&mut self) -> StackVariable {
+        self.op(OP_NUMEQUAL, 2, true, "OP_NUMEQUAL()").unwrap()
+    }
+
+    pub fn op_numnotequal(&mut self) -> StackVariable {
+        self.op(OP_NUMNOTEQUAL, 2, true, "OP_NUMNOTEQUAL()").unwrap()
+    }
+
+    pub fn op_lessthan(&mut self) -> StackVariable {
+        self.op(OP_LESSTHAN, 2, true, "OP_LESSTHAN()").unwrap()
+    }
+
+    pub fn op_lessthanorequal(&mut self) -> StackVariable {
+        self.op(OP_LESSTHANOREQUAL, 2, true, "OP_LESSTHANOREQUAL()").unwrap()
+    }
+
+    pub fn op_greaterthan(&mut self) -> StackVariable {
+        self.op(OP_GREATERTHAN, 2, true, "OP_GREATERTHAN()").unwrap()
+    }
+
+    pub fn op_greaterthanorequal(&mut self) -> StackVariable {
+        self.op(OP_GREATERTHANOREQUAL, 2, true, "OP_GREATERTHANOREQUAL()").unwrap()
+    }
+
+    pub fn op_numequalverify(&mut self) {
+        self.op(OP_NUMEQUALVERIFY, 2, false, "OP_NUMEQUALVERIFY()");
+    }
+
+    pub fn op_0notequal(&mut self) -> StackVariable {
+        self.op(OP_0NOTEQUAL, 1, true, "OP_0NOTEQUAL()").unwrap()
+    }
+
     pub fn op_pick(&mut self) -> StackVariable {
         self.op(OP_PICK, 1, true, "OP_PICK()").unwrap()
+    }
+
+    pub fn op_ifdup(&mut self) -> StackVariable {
+        panic!("OP_IFDUP not implemented as it's not possible to know if it would output a value");
+    }
+
+    pub fn op_roll(&mut self) -> StackVariable {
+        panic!("OP_ROLL not implemented as it would consume an undefined position on the stack");
     }
 
     pub fn op_swap(&mut self) {
@@ -501,6 +581,16 @@ impl StackTracker {
         self.data.push_stack(x);
         self.data.push_stack(z);
         self.op(OP_ROT, 0, false, "OP_ROT()");
+    }
+
+    pub fn op_over(&mut self) -> StackVariable {
+        let x = self.data.stack[self.data.stack.len()-2];
+        let name = self.data.names[&x.id].to_string();
+        self.op(OP_OVER, 0, true, &name).unwrap()
+    }
+
+    pub fn op_verify(&mut self) {
+        let _ = self.op(OP_VERIFY, 1, false, "OP_VERIFY()");
     }
 
     pub fn op_equalverify(&mut self) {
@@ -527,6 +617,17 @@ impl StackTracker {
         self.op(OP_2DROP, 2, false, "OP_2DROP");
     }
 
+    pub fn op_depth(&mut self) -> StackVariable {
+        self.op(OP_DEPTH, 0, true, "OP_DEPTH").unwrap()
+    }
+
+    pub fn op_nip(&mut self)  {
+        let x = self.data.pop_stack();
+        self.data.pop_stack();
+        self.data.push_stack(x);
+        self.op(OP_NIP, 0, false, "OP_NIP");
+    }
+
     pub fn op_dup(&mut self) -> StackVariable {
         self.op(OP_DUP, 0, true, "OP_DUP").unwrap()
     }
@@ -536,6 +637,7 @@ impl StackTracker {
         (x, self.op(OP_2DUP, 0, true, "OP_DUP").unwrap())
     }
 
+
     pub fn get_value_from_table(&mut self, table: StackVariable, offset: Option<u32> ) -> StackVariable {
         self.number(self.get_offset(table)-1 + offset.unwrap_or(0));
         self.op_add();
@@ -544,12 +646,9 @@ impl StackTracker {
         v
     }
 
-    pub fn debug(&mut self, and_panic: bool) {
+    pub fn debug(&mut self) {
         println!("Max stack size: {}", self.max_stack_size);
         print_execute_step(self, self.script.len()-1);
-        if and_panic {
-            panic!("Debugging");
-        }
     }
 
 
@@ -794,21 +893,21 @@ mod tests {
     }
 
     #[test]
-    fn test_op_swap() {
+    fn test_op_over() {
         let mut stack = StackTracker::new();
 
         stack.number(1);
         let x = stack.number(2);
-        stack.op_swap();
+        stack.op_over();
         stack.number(1);
         stack.op_equalverify();
 
         stack.drop(x);
         
-        stack.op_true();
 
         assert!(stack.run().success);
 
     }
+
 
 }
