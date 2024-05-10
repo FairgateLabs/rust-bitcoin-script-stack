@@ -339,6 +339,14 @@ impl StackTracker {
         panic!("The var {:?} is not part of the stack", var);
     }
 
+    pub fn get_var_from_stack(&self, depth: u32) -> StackVariable {
+        self.data.stack[self.data.stack.len() - 1 - depth as usize]
+    }
+    
+    pub fn get_var_name(&self, var: StackVariable) -> String {
+        self.data.names[&var.id].clone()
+    }
+
     pub fn get_script_len(&self) -> usize {
         self.script.len()
     }
@@ -462,7 +470,7 @@ impl StackTracker {
         None
     }
 
-    pub fn op(&mut self, op: Opcode, consumes: u32, output: bool, name: &str ) -> Option<StackVariable> {
+    fn op(&mut self, op: Opcode, consumes: u32, output: bool, name: &str ) -> Option<StackVariable> {
         let mut s = Script::new();
         s.push_opcode(op);
         self.custom(s, consumes, output, 0, name)
@@ -573,6 +581,19 @@ impl StackTracker {
         self.op(OP_SWAP, 0, false, "OP_SWAP()");
     }
 
+    pub fn op_2swap(&mut self) {
+        let d = self.data.pop_stack();
+        let c = self.data.pop_stack();
+        let b = self.data.pop_stack();
+        let a = self.data.pop_stack();
+        self.data.push_stack(c);
+        self.data.push_stack(d);
+        self.data.push_stack(a);
+        self.data.push_stack(b);
+
+        self.op(OP_2SWAP, 0, false, "OP_2SWAP()");
+    }
+
     pub fn op_tuck(&mut self) -> StackVariable {
 
         let var = StackVariable::new( self.next_counter(), 1 );
@@ -600,10 +621,36 @@ impl StackTracker {
         self.op(OP_ROT, 0, false, "OP_ROT()");
     }
 
+    pub fn op_2rot(&mut self) {
+        let f = self.data.pop_stack();
+        let e = self.data.pop_stack();
+        let d = self.data.pop_stack();
+        let c = self.data.pop_stack();
+        let b = self.data.pop_stack();
+        let a = self.data.pop_stack();
+        self.data.push_stack(c);
+        self.data.push_stack(d);
+        self.data.push_stack(e);
+        self.data.push_stack(f);
+        self.data.push_stack(a);
+        self.data.push_stack(b);
+        self.op(OP_2ROT, 0, false, "OP_2ROT()");
+    }
+
+
     pub fn op_over(&mut self) -> StackVariable {
-        let x = self.data.stack[self.data.stack.len()-2];
-        let name = self.data.names[&x.id].to_string();
+        let x = self.get_var_from_stack(1);
+        let name = self.get_var_name(x);
         self.op(OP_OVER, 0, true, &name).unwrap()
+    }
+    
+    pub fn op_2over(&mut self) -> (StackVariable, StackVariable) {
+        let x = self.get_var_from_stack(3);
+        let name = self.get_var_name(x);
+        let y = self.get_var_from_stack(2);
+        let namey = self.get_var_name(y);
+        self.define(1, &name);
+        (x, self.op(OP_2OVER, 0, true, &namey).unwrap())
     }
 
     pub fn op_verify(&mut self) {
@@ -944,6 +991,79 @@ mod tests {
         stack.op_nip();
         stack.op_equalverify();
         stack.op_1add();
+
+        assert!(stack.run().success);
+
+    }
+
+
+    #[test]
+    fn test_op_2over() {
+        let mut stack = StackTracker::new();
+
+        stack.number(0);
+        stack.number(1);
+        stack.number(2);
+        stack.number(4);
+
+        stack.op_2over();
+        stack.to_altstack();
+
+        stack.number(0);
+        stack.op_equalverify();
+
+        stack.op_2drop();
+        stack.op_2drop();
+        stack.from_altstack();
+
+        assert!(stack.run().success);
+
+    }
+
+    #[test]
+    fn test_op_2swap() {
+        let mut stack = StackTracker::new();
+
+        stack.number(0);
+        stack.number(1);
+        stack.number(2);
+        stack.number(3);
+
+        stack.op_2swap();
+
+        stack.number(1);
+        stack.op_equalverify();
+        stack.number(0);
+        stack.op_equalverify();
+
+        stack.op_2drop();
+        stack.op_true();
+
+        assert!(stack.run().success);
+
+    }
+
+    #[test]
+    fn test_op_2rot() {
+        let mut stack = StackTracker::new();
+
+        stack.number(1);
+        stack.number(2);
+        stack.number(3);
+        stack.number(4);
+        stack.number(5);
+        stack.number(6);
+
+        stack.op_2rot();
+
+        stack.number(2);
+        stack.op_equalverify();
+        stack.number(1);
+        stack.op_equalverify();
+
+        stack.op_2drop();
+        stack.op_2drop();
+        stack.op_true();
 
         assert!(stack.run().success);
 
