@@ -573,10 +573,27 @@ impl StackTracker {
         self.op(OP_SWAP, 0, false, "OP_SWAP()");
     }
 
+    pub fn op_tuck(&mut self) -> StackVariable {
+
+        let var = StackVariable::new( self.next_counter(), 1 );
+        let x = self.data.pop_stack();
+        let y = self.data.pop_stack();
+        assert!(x.size == 1 && y.size == 1, "OP_TUCK requires two elements of size 1");
+
+        self.push(var);
+        self.push(y);
+        self.push(x);
+        self.data.set_name(var, "OP_TuCK()");
+        self.push_script(script!{OP_TUCK});
+        var
+
+    }
+
     pub fn op_rot(&mut self) {
         let x = self.data.pop_stack();
         let y = self.data.pop_stack();
         let z = self.data.pop_stack();
+        assert!(x.size == 1 && y.size == 1 && z.size == 1, "OP_ROT requires three elements of size 1");
         self.data.push_stack(y);
         self.data.push_stack(x);
         self.data.push_stack(z);
@@ -904,6 +921,23 @@ mod tests {
 
         stack.drop(x);
         
+
+        assert!(stack.run().success);
+
+    }
+
+    #[test]
+    fn test_op_tuck() {
+        let mut stack = StackTracker::new();
+
+        stack.number(0);
+        stack.number(1);
+        stack.number(2);
+        stack.op_tuck();
+
+        stack.op_nip();
+        stack.op_equalverify();
+        stack.op_1add();
 
         assert!(stack.run().success);
 
