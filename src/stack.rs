@@ -1098,6 +1098,7 @@ mod tests {
 
     }
 
+    #[test]
     fn test_debug_visualization() {
         let mut stack = StackTracker::new();
 
