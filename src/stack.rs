@@ -662,9 +662,33 @@ impl StackTracker {
         let _ = self.op(OP_EQUALVERIFY, 2, false, "OP_EQUALVERIFY()");
     }
 
+    pub fn op_sha256(&mut self) -> StackVariable {
+        let x = self.get_var_from_stack(0);
+        let name = self.get_var_name(x);
+        self.op(OP_SHA256, 1, true, &format!("sha256({})",name)).unwrap()
+    }
+
+    pub fn op_hash160(&mut self) -> StackVariable {
+        let x = self.get_var_from_stack(0);
+        let name = self.get_var_name(x);
+        self.op(OP_HASH160, 1, true, &format!("hash160({})",name)).unwrap()
+    }
+
+    pub fn op_hash256(&mut self) -> StackVariable {
+        let x = self.get_var_from_stack(0);
+        let name = self.get_var_name(x);
+        self.op(OP_HASH256, 1, true, &format!("hash256({})",name)).unwrap()
+    }
+
+    pub fn op_ripemd160(&mut self) -> StackVariable {
+        let x = self.get_var_from_stack(0);
+        let name = self.get_var_name(x);
+        self.op(OP_RIPEMD160, 1, true, &format!("ripemd160({})",name)).unwrap()
+    }
+
     pub fn hexstr(&mut self, value: &str) -> StackVariable {
         let bytes = Vec::from_hex(value).unwrap();
-        self.var(1, script!{{bytes}}, &format!("data({})", value))
+        self.var(1, script!{{bytes}}, "hexdata")
     }
 
     pub fn number(&mut self, value: u32) -> StackVariable {
@@ -1122,11 +1146,31 @@ mod tests {
         let mut stack = StackTracker::new();
 
         stack.number(1);
-        stack.custom(script!{ OP_SHA256 }, 1, true, 0, "sha256(1)");
+        stack.op_sha256();
         stack.hexstr("4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a");
+        stack.debug();
         stack.op_equal();
         assert!(stack.run().success);
 
     }
 
+    #[test]
+    fn test_hash_functions() {
+        let mut stack = StackTracker::new();
+
+        stack.number(1);
+        stack.op_sha256();
+        stack.op_hash256();
+        stack.op_hash160();
+        stack.op_ripemd160();
+        stack.hexstr("aa72add4303b07bc32852fee998493b48d7dd33d");
+        stack.debug();
+        stack.op_equal();
+        assert!(stack.run().success);
+
+    }
+
+
+
+    
 }
