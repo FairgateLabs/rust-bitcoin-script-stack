@@ -10,6 +10,7 @@ pub use bitcoin::ScriptBuf as Script;
 use crate::debugger::{execute_step, print_execute_step, show_altstack, show_stack, StepResult};
 use super::script_util::*;
 
+use hex::FromHex;
 
 
 #[derive(Clone, Debug, Copy)]
@@ -661,6 +662,11 @@ impl StackTracker {
         let _ = self.op(OP_EQUALVERIFY, 2, false, "OP_EQUALVERIFY()");
     }
 
+    pub fn hexstr(&mut self, value: &str) -> StackVariable {
+        let bytes = Vec::from_hex(value).unwrap();
+        self.var(1, script!{{bytes}}, &format!("data({})", value))
+    }
+
     pub fn number(&mut self, value: u32) -> StackVariable {
         self.var(1, script!{{value}}, &format!("number({:#x})", value))
     }
@@ -1111,5 +1117,16 @@ mod tests {
 
     }
 
+    #[test]
+    fn test_hex_literal() {
+        let mut stack = StackTracker::new();
+
+        stack.number(1);
+        stack.custom(script!{ OP_SHA256 }, 1, true, 0, "sha256(1)");
+        stack.hexstr("4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a");
+        stack.op_equal();
+        assert!(stack.run().success);
+
+    }
 
 }
