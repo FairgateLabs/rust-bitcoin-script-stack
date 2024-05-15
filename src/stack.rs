@@ -718,6 +718,7 @@ impl StackTracker {
 
     pub fn debug(&mut self) {
         println!("Max stack size: {}", self.max_stack_size);
+        self.push_script(script!{});
         print_execute_step(self, self.script.len()-1);
     }
 
@@ -1094,6 +1095,18 @@ mod tests {
 
         stack.debug();
         assert!(stack.run().success);
+
+    }
+
+    fn test_debug_visualization() {
+        let mut stack = StackTracker::new();
+
+        stack.custom(script!{ 1}, 0, false, 0, " ");
+        stack.define(1, "one var");
+        stack.debug();
+        stack.number(1);
+        stack.op_equal();
+        stack.debug();
 
     }
 
