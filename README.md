@@ -92,6 +92,5 @@ As this op modifies the stack depth at runtime it is not possible to implement i
 
 ### TODO:
 List of pending tasks:
-- Support long hex or string elements on the stack
-- Crypto functions
+- Support branching debugging 
 - Define transaction templates to validate withness inputs 
