@@ -431,20 +431,13 @@ impl StackTracker {
 
     pub fn explode(&mut self, var: StackVariable) -> Vec<StackVariable> {
         let mut ret = Vec::new();
-        let mut found  = self.data.stack.len();
-        for n in 0..self.data.stack.len() {
-            if self.data.stack[n].id == var.id {
-                self.data.stack.remove(n);
-                found = n;
-                break;
-            }
-        }
-
-        for i in 0..var.size {
+        assert!(self.data.stack.last().unwrap().id == var.id, "Explode is only supported with the last variable on stack" );
+        for _ in 0..var.size {
             let new_var = StackVariable::new(self.next_counter(), 1);
             ret.push(new_var);
-            self.data.stack.insert(found + i as usize, new_var);
+            self.push(new_var);
         }
+        self.data.remove_var(var);
         ret
 
     }
