@@ -356,7 +356,6 @@ impl StackTracker {
             } else {
                 self.copy_var_sub_n(*var2, var2.size - i - 1);
             }
-            self.debug();
             self.op_equalverify();
         }
 
