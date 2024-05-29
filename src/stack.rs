@@ -340,6 +340,10 @@ impl StackTracker {
             if dont_move {
                 self.data.decrease_size(*var2);
                 var2.size -= 1;
+
+                if var2.size == 0 {
+                    self.data.remove_var(*var2);
+                }
                 self.define(1, "extracted");
             }
 
