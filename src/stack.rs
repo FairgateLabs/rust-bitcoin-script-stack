@@ -688,6 +688,10 @@ impl StackTracker {
         self.var(1, script!{{value}}, &format!("number({:#x})", value))
     }
 
+    pub fn byte(&mut self, value: u8) -> StackVariable {
+        self.var(2, byte_to_nibble(value), &format!("byte({:#x})", value))
+    }
+
     pub fn number_u32(&mut self, value: u32) -> StackVariable {
         self.var(8, number_to_nibble(value), &format!("number_u32({:#x})", value))
     }
@@ -772,6 +776,20 @@ mod tests {
         assert!(stack.run().success);
 
     }
+
+    #[test]
+    fn test_byte() {
+        let mut stack = StackTracker::new();
+        let byte = stack.byte(254);
+        stack.explode(byte);
+        stack.number(0xe);
+        stack.op_equalverify();
+        stack.number(0xf);
+        stack.op_equalverify();
+        stack.op_true();
+        assert!(stack.run().success);
+    }
+
 
     #[test]
     fn test_move_var() {

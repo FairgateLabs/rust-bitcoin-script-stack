@@ -55,6 +55,15 @@ pub fn number_to_nibble(n: u32) -> Script {
     }
 }
 
+
+pub fn byte_to_nibble(n: u8) -> Script { 
+    script! {
+       for i in (0..2).rev() { 
+            { (n >> (i * 4)) & 0xF } 
+        } 
+    }
+}
+
 pub fn verify_n(n: u32) -> Script {
     script! {
         for i in 0..n {
