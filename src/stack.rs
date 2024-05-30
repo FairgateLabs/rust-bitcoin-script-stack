@@ -468,8 +468,9 @@ impl StackTracker {
     pub fn explode(&mut self, var: StackVariable) -> Vec<StackVariable> {
         let mut ret = Vec::new();
         assert!(self.data.stack.last().unwrap().id == var.id, "Explode is only supported with the last variable on stack" );
-        for _ in 0..var.size {
+        for i in 0..var.size {
             let new_var = StackVariable::new(self.next_counter(), 1);
+            self.rename(new_var, &format!("{}[{}]", self.get_var_name(var), i));
             ret.push(new_var);
             self.push(new_var);
         }
@@ -977,6 +978,10 @@ mod tests {
         let mut stack = StackTracker::new();
         let x = stack.number_u32(0xdeadbeaf);
         let x_parts = stack.explode(x);
+        stack.debug();
+        let temp = stack.copy_var(x_parts[1]);
+        stack.debug();
+        stack.drop(temp);
 
         stack.move_var(x_parts[2]);
 
