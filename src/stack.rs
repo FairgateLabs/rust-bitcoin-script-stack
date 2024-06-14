@@ -37,6 +37,7 @@ impl StackVariable {
     }
 }
 
+#[derive(Clone, Debug)]
 enum RedoOps {
     PushStack(StackVariable),
     PushAltstack(StackVariable),
@@ -49,6 +50,7 @@ enum RedoOps {
     IncreaseSize(usize, u32),
 }
 
+#[derive(Clone, Debug)]
 pub struct StackData {
     pub(crate) stack: Vec<StackVariable>,
     pub(crate) altstack: Vec<StackVariable>,
@@ -156,6 +158,7 @@ impl StackData {
 
 }
 
+#[derive(Clone, Debug)]
 pub struct StackTracker {
     pub(crate) data: StackData,
     pub(crate) script: Vec<Script>,
@@ -235,6 +238,29 @@ impl StackTracker {
     pub fn next_counter(&mut self) -> u32 {
         self.counter += 1;
         self.counter
+    }
+
+
+    //limited branch if:
+    // it's only possible for now to create two branches that consumes the same ammount of variables from the stack
+    // and produce the same ammount of variables of the same size
+    pub fn open_if(&mut self) -> (StackTracker, StackTracker) {
+        self.custom(script!{ OP_IF }, 1, false, 0, "open_if");
+        (self.clone(), self.clone())
+    }
+
+    pub fn end_if(&mut self, if_true: StackTracker, if_false: StackTracker, consumes:u32, output_vars: Vec<(u32, String)>, to_altstack: u32) -> Vec<StackVariable> {
+        self.custom_ex(
+            script! {
+                for s in if_true.script.iter().skip(self.script.len()) {
+                    { s.clone() }
+                }
+                OP_ELSE
+                for s in if_false.script.iter().skip(self.script.len()) {
+                    { s.clone() }
+                }
+                OP_ENDIF
+            }, consumes, output_vars, to_altstack)
     }
 
     pub fn define(&mut self, size: u32, name: &str) -> StackVariable {
@@ -479,15 +505,18 @@ impl StackTracker {
 
     }
 
-    pub fn custom(&mut self, script: Script, consumes: u32, output: bool, to_altstack: u32, name: &str ) -> Option<StackVariable> {
-
+    pub fn custom_ex(&mut self, script: Script, consumes: u32, output_vars: Vec<(u32, String )> , to_altstack: u32) -> Vec<StackVariable> {
 
         for _ in 0..consumes {
             self.data.pop_stack();
         }
 
-        if output {
-            let ret = Some(self.define(1, name));
+        if output_vars.len() > 0 {
+            let mut ret = Vec::new();
+
+            for (size, name) in output_vars {
+                ret.push(self.define(size, &name));
+            }
             self.push_script(script);
             return ret;
         }
@@ -498,7 +527,20 @@ impl StackTracker {
         }
 
         self.push_script(script);
-        None
+        vec![]
+    }
+
+    pub fn custom(&mut self, script: Script, consumes: u32, output: bool, to_altstack: u32, name: &str ) -> Option<StackVariable> {
+        let mut output_vec = vec![];
+        if output {
+            output_vec.push((1 as u32, name.to_string()));
+        }
+        let ret = self.custom_ex(script, consumes, output_vec, to_altstack);
+        if ret.len() == 0 {
+            None
+        } else {
+            Some(ret[0])
+        }
     }
 
     fn op(&mut self, op: Opcode, consumes: u32, output: bool, name: &str ) -> Option<StackVariable> {
@@ -1199,6 +1241,35 @@ mod tests {
                 OP_1SUB
             OP_ENDIF
         }, 1, true, 0, "cond");
+
+        stack.debug();
+        stack.number(3);
+        stack.debug();
+        stack.op_equalverify();
+
+        stack.debug();
+        assert!(stack.run().success);
+
+    }
+   
+   #[test]
+    fn test_open_if() {
+        let mut stack = StackTracker::new();
+
+        stack.number(1);
+        stack.number(2);
+        stack.debug();
+
+        stack.op_dup();
+        stack.number(2);
+        stack.op_equal();
+
+        let (mut if_true, mut if_false) = stack.open_if();
+        if_true.op_1add();
+        if_true.debug();
+        if_false.op_1sub();
+        if_false.debug();
+        stack.end_if(if_true, if_false, 1, vec![(1, "result".to_string())], 0);
 
         stack.debug();
         stack.number(3);

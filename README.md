@@ -78,11 +78,17 @@ Use `move_var` and `move_var_sub_n` to achieve the same goal, and take advantage
 
 
 ### Conditionals
-For now, conditional branches are not supported as operations.
-Nonetheless conditionals that on each branch result in the same amount of variables consumed and produced can be implemented using the `custom` function and `define` to specify the resulting vars.
-Take a look at `test_conditional` on [src/stack.rs](src/stack.rs) as an example.
+For now, conditional branches are not 100% supported.
+The main constraint is that on each branch result in the same amount of variables consumed and produced needs to be the same.
 
-At some point conditionals might be implemented as part of the lib, allowing debugging of each branch.
+There are two ways of using it: 
+With `custom` (or `custom_ex`) and writing the script as it is done in this example: `test_conditional` on [src/stack.rs](src/stack.rs)
+
+Or using `open_if` and `end_if`. The first function returns two copies of the stack, one for the true branch and one for the false branch.
+Take a look to the example:
+`test_open_if` on [src/stack.rs](src/stack.rs). Some internal branch debugging seems to be possible but it was not very well tested yet.
+
+At some point a different way to handle conditionals might be implemented as part of the lib, allowing bettery debugging of each branch.
 
 
 ### OP_IFDUP
@@ -92,5 +98,5 @@ As this op modifies the stack depth at runtime it is not possible to implement i
 
 ### TODO:
 List of pending tasks:
-- Support branching debugging 
+- Improve branching debugging 
 - Define transaction templates to validate withness inputs 
