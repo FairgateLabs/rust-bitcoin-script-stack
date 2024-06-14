@@ -245,8 +245,11 @@ impl StackTracker {
     // it's only possible for now to create two branches that consumes the same ammount of variables from the stack
     // and produce the same ammount of variables of the same size
     pub fn open_if(&mut self) -> (StackTracker, StackTracker) {
+        let (mut if_true, mut if_false) = (self.clone(), self.clone());
+        if_true.op_drop();
+        if_false.op_drop();
         self.custom(script!{ OP_IF }, 1, false, 0, "open_if");
-        (self.clone(), self.clone())
+        (if_true, if_false)
     }
 
     pub fn end_if(&mut self, if_true: StackTracker, if_false: StackTracker, consumes:u32, output_vars: Vec<(u32, String)>, to_altstack: u32) -> Vec<StackVariable> {
@@ -340,6 +343,9 @@ impl StackTracker {
 
     pub fn move_var(&mut self, var: StackVariable) -> StackVariable {
         let offset = self.get_offset(var);
+        if offset == 0 {
+            return var;
+        }
         self.data.remove_var(var);
         self.push(var);
         self.push_script( move_from(offset, var.size));
