@@ -12,7 +12,7 @@ repository = "https://github.com/FairgateLabs/rust-bitcoin-script-stack"
 bitcoin-script = { git = "https://github.com/FairgateLabs/rust-bitcoin-script", branch = "bitvmx"}
 bitcoin = "0.32.1"
 bitcoin-scriptexec = { git = "https://github.com/FairgateLabs/rust-bitcoin-scriptexec/", branch = "bitvmx" }
-opcode-utils = { git = "https://github.com/FairgateLabs/opcode-utils/" }
+bitcoin-opcode-utils = { git = "https://github.com/FairgateLabs/rust-bitcoin-opcode-utils/" }
 
 crossterm = { version = "0.27.0", optional = true}
 hex = "0.4.3"
