@@ -242,8 +242,8 @@ impl StackTracker {
 
 
     //limited branch if:
-    // it's only possible for now to create two branches that consumes the same ammount of variables from the stack
-    // and produce the same ammount of variables of the same size
+    // it's only possible for now to create two branches that consumes the same amount of variables from the stack
+    // and produce the same amount of variables of the same size
     pub fn open_if(&mut self) -> (StackTracker, StackTracker) {
         let (mut if_true, mut if_false) = (self.clone(), self.clone());
         if_true.op_drop();
