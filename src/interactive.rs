@@ -66,7 +66,7 @@ fn print_stack_line(i:usize, s: &str, trim:bool) {
 
 fn show_step(stdout : &mut Stdout, stack: &StackTracker, step: usize, bp_name: &str, trim: bool) {
 
-    // Enter alternate screen to not mess up the user's terminal buffer
+    // Enter an alternate screen to not mess up the user's terminal buffer
     stdout.execute(EnterAlternateScreen).unwrap();
     stdout.execute(Clear(ClearType::All)).unwrap();
 
