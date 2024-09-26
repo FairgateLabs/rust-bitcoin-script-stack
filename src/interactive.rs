@@ -122,13 +122,13 @@ fn show_step(stdout : &mut Stdout, stack: &StackTracker, step: usize, bp_name: &
             ResetColor,
         ).unwrap();
     }
-    print!("\r\n");
 
-    print!("======= STACK: ======\r\n");
+    execute!(stdout, Print("\r\n")).unwrap();
+    execute!(stdout, Print("======= STACK: ======\r\n")).unwrap();
     for (i, s) in res.stack.iter().enumerate() {
         print_stack_line(i, s, trim);
     }
-    print!("==== ALT-STACK: ====\r\n");
+    execute!(stdout, Print("==== ALT-STACK: ====\r\n")).unwrap();
     for (i,s) in res.altstack.iter().enumerate() {
         print_stack_line(i, s, trim);
     }

@@ -203,7 +203,8 @@ impl StackTracker {
     }
 
     pub fn set_breakpoint(&mut self, name: &str) {
-        self.breakpoint.push((self.script.len()as u32, name.to_string()));
+        self.push_script(script!{});
+        self.breakpoint.push((self.script.len()as u32 - 1, name.to_string()));
     }
 
     pub fn get_next_breakpoint(&self, from:u32) -> Option<(u32, String)> {
@@ -500,13 +501,13 @@ impl StackTracker {
     pub fn explode(&mut self, var: StackVariable) -> Vec<StackVariable> {
         let mut ret = Vec::new();
         assert!(self.data.stack.last().unwrap().id == var.id, "Explode is only supported with the last variable on stack" );
+        self.data.remove_var(var);
         for i in 0..var.size {
             let new_var = StackVariable::new(self.next_counter(), 1);
             self.rename(new_var, &format!("{}[{}]", self.get_var_name(var), i));
             ret.push(new_var);
             self.push(new_var);
         }
-        self.data.remove_var(var);
         ret
 
     }
@@ -845,6 +846,7 @@ mod tests {
 
 
     pub use bitcoin_script::{define_pushable, script};
+    
     define_pushable!();
     use super::{StackData, StackTracker, StackVariable};
 
@@ -1025,7 +1027,10 @@ mod tests {
     fn test_explode() {
         let mut stack = StackTracker::new();
         let x = stack.number_u32(0xdeadbeaf);
+        let orginal_size = stack.get_max_stack_size();
         let x_parts = stack.explode(x);
+        let new_size = stack.get_max_stack_size();
+        assert_eq!(orginal_size, new_size);
         stack.debug();
         let temp = stack.copy_var(x_parts[1]);
         stack.debug();
