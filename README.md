@@ -24,7 +24,7 @@ assert!(stack.run().success)
 ### Debugging
 Debugging the scripts
 
-An any moment that StackTracker objects are being constructed it is possible to debug its internal state using the functions inside the debugger.
+At any moment that StackTracker objects are being constructed it is possible to debug its internal state using the functions inside the debugger.
 i.e:
 
 ```
