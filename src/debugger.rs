@@ -1,9 +1,8 @@
 use bitcoin::{hashes::Hash, TapLeafHash, Transaction};
 use bitcoin_scriptexec::{Exec, ExecCtx, Options, Stack, TxTemplate};
 
-pub use bitcoin_script::{define_pushable, script};
-define_pushable!();
-pub use bitcoin::ScriptBuf as Script;
+pub use bitcoin_script::script;
+pub use bitcoin_script::builder::StructuredScript as Script;
 
 use crate::stack::{StackData, StackTracker, StackVariable};
 
@@ -106,7 +105,7 @@ pub fn execute_step(stack: &StackTracker, step_number: usize) -> StepResult {
     let height = stack.history[step_number];
     let step_data = stack.data.new_from_redo_height(height as usize);
 
-    let (result, last) = debug_script(script);
+    let (result, last) = debug_script(script.compile());
 
     let with_error = result.result().as_ref().unwrap().error.is_some();
     let error = format!("{:?}", result.result().as_ref().unwrap().error);
