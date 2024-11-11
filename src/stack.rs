@@ -3,9 +3,8 @@ use std::collections::HashMap;
 use bitcoin::{opcodes::OP_TRUE, Opcode};
 use bitcoin::opcodes::all::*;
 
-pub use bitcoin_script::{define_pushable, script};
-define_pushable!();
-pub use bitcoin::ScriptBuf as Script;
+pub use bitcoin_script::script;
+pub use bitcoin_script::builder::StructuredScript as Script;
 
 use crate::debugger::{execute_step, print_execute_step, show_altstack, show_stack, StepResult};
 use super::script_util::*;
@@ -550,9 +549,7 @@ impl StackTracker {
     }
 
     fn op(&mut self, op: Opcode, consumes: u32, output: bool, name: &str ) -> Option<StackVariable> {
-        let mut s = Script::new();
-        s.push_opcode(op);
-        self.custom(s, consumes, output, 0, name)
+        self.custom(Script::new("").push_opcode(op), consumes, output, 0, name)
     }
 
     pub fn op_negate(&mut self) -> StackVariable {
@@ -844,8 +841,8 @@ impl StackTracker {
 mod tests {
 
 
-    pub use bitcoin_script::{define_pushable, script};
-    define_pushable!();
+    pub use bitcoin_script::script;
+    
     use super::{StackData, StackTracker, StackVariable};
 
     use crate::debugger::{debug_script, show_altstack, show_stack};
@@ -919,7 +916,7 @@ mod tests {
             OP_TRUE
         };
 
-        let (ret,_) = debug_script(script);
+        let (ret,_) = debug_script(script.compile());
         assert!(ret.result().unwrap().success);
     }
 
@@ -941,7 +938,7 @@ mod tests {
             OP_TRUE
         };
 
-        let (ret,_) = debug_script(script);
+        let (ret,_) = debug_script(script.compile());
         assert!(ret.result().unwrap().success);
     }
 
@@ -962,7 +959,7 @@ mod tests {
             OP_TRUE
         };
 
-        let (ret,_) = debug_script(script);
+        let (ret,_) = debug_script(script.compile());
         assert!(ret.result().unwrap().success);
     }
 
@@ -1017,7 +1014,7 @@ mod tests {
             OP_TRUE
         };
 
-        let (ret,_) = debug_script(script);
+        let (ret,_) = debug_script(script.compile());
         assert!(ret.result().unwrap().success);
     }
 
@@ -1041,7 +1038,7 @@ mod tests {
             OP_TRUE
         };
 
-        let (ret,_) = debug_script(script);
+        let (ret,_) = debug_script(script.compile());
         assert!(ret.result().unwrap().success);
     }
 

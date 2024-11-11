@@ -1,6 +1,5 @@
-pub use bitcoin_script::{define_pushable, script};
-define_pushable!();
-pub use bitcoin::ScriptBuf as Script;
+pub use bitcoin_script::script;
+pub use bitcoin_script::builder::StructuredScript as Script;
 
 pub fn move_from(address: u32, size: u32) -> Script {
     script! {
