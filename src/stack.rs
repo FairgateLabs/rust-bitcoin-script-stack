@@ -774,6 +774,10 @@ impl StackTracker {
         self.var(1, script!{{value}}, &format!("number({:#x})", value))
     }
 
+    pub fn numberi(&mut self, value: i32) -> StackVariable {
+        self.var(1, script!{{value}}, &format!("number({:#x})", value))
+    }
+
     pub fn byte(&mut self, value: u8) -> StackVariable {
         self.var(2, byte_to_nibble(value), &format!("byte({:#x})", value))
     }
