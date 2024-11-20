@@ -1,4 +1,4 @@
-use bitcoin::{script::{Instruction, PushBytes}, Opcode};
+use bitcoin::{script::Instruction, Opcode};
 pub use bitcoin_script::{define_pushable, script};
 define_pushable!();
 pub use bitcoin::ScriptBuf as Script;
@@ -46,15 +46,12 @@ fn get_digit(instruction: &Instruction) -> Option<u8> {
     None
 }
 
-fn is_opcode(instruction: &Instruction, opcode: &Opcode) -> bool {
+fn get_opcode(instruction: &Instruction) -> Option<Opcode> {
     match instruction {
-        Instruction::Op(op) => {
-            op == opcode
-        }, 
-        _ => false
+        Instruction::Op(op) => Some(op.clone()),
+        _ => None
     }
 }
-
 
 fn count_ahead(instructions: &Vec<Instruction>, i: usize) -> usize {
     let mut j = i + 1;
@@ -71,7 +68,7 @@ fn count_ahead(instructions: &Vec<Instruction>, i: usize) -> usize {
     count
 }
 
-fn replace(instructions: &mut Vec<Instruction>, mut i: usize, count: usize) -> (usize, usize) {
+fn replace(instructions: &mut Vec<Instruction>, mut i: usize, count: usize) -> usize {
     let ops = match count {
         3 => vec![1, 2],
         4 => vec![1, 1, 2],
@@ -86,7 +83,7 @@ fn replace(instructions: &mut Vec<Instruction>, mut i: usize, count: usize) -> (
         13 => vec![1, 2, 2, 2, 3, 3],
         14 => vec![1, 2, 2, 3, 3, 3],
         15 => vec![1, 2, 3, 3, 3, 3],
-        _ => return (0, 0)
+        _ => return 0
     };
 
     let new_size = ops.len();
@@ -102,100 +99,56 @@ fn replace(instructions: &mut Vec<Instruction>, mut i: usize, count: usize) -> (
         i += 1;
     }
     instructions.drain(i+1 .. i+1+drain);
-    (new_size, drain)
+    new_size
 }
 
+pub fn opcode_transformation( opcode: &Opcode, previous_opcode: Option<Opcode>, previous_digit: Option<u8>) -> Option<Option<Opcode>> {
+    match (opcode, previous_opcode, previous_digit) {
+        (&OP_FROMALTSTACK, Some(OP_TOALTSTACK), None) => Some(None),
+        (&OP_PICK, None, Some(0)) => Some(Some(OP_DUP)),
+        (&OP_PICK, None, Some(1)) => Some(Some(OP_OVER)),
+        (&OP_ROLL, None, Some(0)) => Some(None),
+        (&OP_ROLL, None, Some(1)) => Some(Some(OP_SWAP)),
+        (&OP_ROLL, None, Some(2)) => Some(Some(OP_ROT)),
+        _ => None
+    }
+} 
 
 pub fn optimize(script: Script) -> Script {
-    //println!("{:?}", script.as_script().to_asm_string()) ;
 
     let mut instructions = to_vec(&script);
-    let mut len = instructions.len();
     let mut i = 0;
-    while i < len {
+    while i < instructions.len() {
 
-        //println!("i {:?}", instructions[i]);
-        //println!("op {:?}", instructions[i]);
-        let is_to_altstack = is_opcode(&instructions[i], &OP_TOALTSTACK);
-        if is_to_altstack && i + 1 < len {
-            if let Instruction::Op(next_op) = &instructions[i+1] {
-                if next_op == &OP_FROMALTSTACK {
-                    instructions.drain(i..i+2);
-                    len -= 2;
-                    i -= 1;
+        if i > 0 {
+            if let Some(opcode) = get_opcode(&instructions[i]) {
+                if let Some(transformation)  = opcode_transformation(&opcode, get_opcode(&instructions[i-1]), get_digit(&instructions[i-1])) {
+                    if let Some(new_opcode) = transformation {
+                        instructions[i-1] = Instruction::Op(new_opcode);
+                        instructions.drain(i..i+1);
+                    } else {
+                        instructions.drain(i-1..i+1);
+                        i-=1;
+                    }
+                    continue;
                 }
             }
         }
-        if i >= len {
-            break;
-        }
-
-        let is_pick = is_opcode(&instructions[i], &OP_PICK);
-        if is_pick {
-            let digit = get_digit(&instructions[i-1]);
-            if let Some(digit) = digit {
-                if digit == 0 {
-                    instructions[i-1] = Instruction::Op(OP_DUP);
-                    instructions.drain(i..i+1);
-                    len -= 1;
-                    i -= 1;
-                }
-                if digit == 1 {
-                    instructions[i-1] = Instruction::Op(OP_OVER);
-                    instructions.drain(i..i+1);
-                    len -= 1;
-                    i -= 1;
-
-                }
-            }
-        }
-        if i >= len {
-            break;
-        }
-
-        let is_roll = is_opcode(&instructions[i], &OP_ROLL);
-        if is_roll {
-            let digit = get_digit(&instructions[i-1]);
-            if let Some(digit) = digit {
-                if digit == 0 {
-                    instructions.drain(i-1..i+1);
-                    len -= 2;
-                    i -= 1;
-                }
-                if digit == 1 {
-                    instructions[i-1] = Instruction::Op(OP_SWAP);
-                    instructions.drain(i..i+1);
-                    len -= 1;
-                    i -= 1;
-                }
-                if digit == 2 {
-                    instructions[i-1] = Instruction::Op(OP_ROT);
-                    instructions.drain(i..i+1);
-                    len -= 1;
-                    i -= 1;
-                }
-            }
-        }
-        if i >= len {
-            break;
-        }
-
 
         let instruction = &instructions[i];
         if get_digit(instruction).is_some() {
-            //println!("{:?}", instruction);
             let count = count_ahead(&instructions, i);
-            let (new_size, drain) = replace(&mut instructions, i, count);
-            len -= drain;
+            let new_size = replace(&mut instructions, i, count);
             i += new_size;
         }
+
+
         i += 1;
     }
 
 
     from_vec(instructions)
 
-    //println!("{:?}", Script::from_hex(&script.to_hex_string()).unwrap().as_script().to_asm_string()) ;
 }
 
 
@@ -203,13 +156,12 @@ pub fn optimize(script: Script) -> Script {
 mod tests {
 
 
-    use bitcoin::hashes::serde::de;
-    pub use bitcoin_script::{define_pushable, script};
+    pub use bitcoin_script::define_pushable;
     
     define_pushable!();
-    use crate::stack::{StackData, StackTracker, StackVariable};
+    use crate::stack::StackTracker;
 
-    use crate::debugger::{debug_script, show_altstack, show_stack};
+    use crate::debugger::debug_script;
     use crate::script_util::*;
 
     use super::*;
@@ -333,7 +285,6 @@ mod tests {
         stack.move_var(x);
         stack.number(20);
         stack.op_equalverify();
-        stack.debug();
 
         assert!(stack.run().success);
 
@@ -355,7 +306,6 @@ mod tests {
         stack.number(20);
         stack.op_equalverify();
         stack.op_drop();
-        stack.debug();
 
         assert!(stack.run().success);
 
@@ -378,7 +328,6 @@ mod tests {
         stack.number(20);
         stack.op_equalverify();
         stack.op_2drop();
-        stack.debug();
 
         assert!(stack.run().success);
 
