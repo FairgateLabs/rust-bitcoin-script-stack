@@ -135,7 +135,7 @@ pub fn show_stacks(data: &StackData, stack: &[StackVariable], mut real: Vec<Stri
     for var in iter {
         let data_item = format!("id: {:<width$} | size: {:<width$} | name: {:<width_name$} | ", var.id(), var.size(), data.names.get(&var.id()).unwrap_or(&"unknown".to_string()), width=7, width_name=20 );
         let mut real_sub = String::new();
-        if !real.is_empty() {
+        if !real.is_empty() && real.len() >= var.size() as usize {
             real_sub = real.iter().take(var.size() as usize).cloned().collect();
             real.drain(0..var.size() as usize);
         }

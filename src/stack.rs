@@ -202,7 +202,8 @@ impl StackTracker {
     }
 
     pub fn set_breakpoint(&mut self, name: &str) {
-        self.breakpoint.push((self.script.len()as u32, name.to_string()));
+        self.push_script(script!{});
+        self.breakpoint.push((self.script.len()as u32 - 1, name.to_string()));
     }
 
     pub fn get_next_breakpoint(&self, from:u32) -> Option<(u32, String)> {
@@ -499,13 +500,13 @@ impl StackTracker {
     pub fn explode(&mut self, var: StackVariable) -> Vec<StackVariable> {
         let mut ret = Vec::new();
         assert!(self.data.stack.last().unwrap().id == var.id, "Explode is only supported with the last variable on stack" );
+        self.data.remove_var(var);
         for i in 0..var.size {
             let new_var = StackVariable::new(self.next_counter(), 1);
             self.rename(new_var, &format!("{}[{}]", self.get_var_name(var), i));
             ret.push(new_var);
             self.push(new_var);
         }
-        self.data.remove_var(var);
         ret
 
     }
@@ -770,6 +771,10 @@ impl StackTracker {
         self.var(1, script!{{value}}, &format!("number({:#x})", value))
     }
 
+    pub fn numberi(&mut self, value: i32) -> StackVariable {
+        self.var(1, script!{{value}}, &format!("number({:#x})", value))
+    }
+
     pub fn byte(&mut self, value: u8) -> StackVariable {
         self.var(2, byte_to_nibble(value), &format!("byte({:#x})", value))
     }
@@ -778,8 +783,17 @@ impl StackTracker {
         self.var(8, number_to_nibble(value), &format!("number_u32({:#x})", value))
     }
 
+    pub fn number_u32_u8(&mut self, value: u32) -> StackVariable {
+        self.var(4, number_to_nibble_u8(value), &format!("number_u32_u8({:#x})", value))
+    }
+
+
     pub fn op_true(&mut self) -> StackVariable {
         self.op(OP_TRUE, 0, true, "OP_TRUE").unwrap()
+    }
+
+    pub fn op_nop(&mut self) -> StackVariable {
+        self.op(OP_NOP, 0, true, "OP_NOP()").unwrap()
     }
 
     pub fn op_drop(&mut self) {
@@ -1022,7 +1036,10 @@ mod tests {
     fn test_explode() {
         let mut stack = StackTracker::new();
         let x = stack.number_u32(0xdeadbeaf);
+        let orginal_size = stack.get_max_stack_size();
         let x_parts = stack.explode(x);
+        let new_size = stack.get_max_stack_size();
+        assert_eq!(orginal_size, new_size);
         stack.debug();
         let temp = stack.copy_var(x_parts[1]);
         stack.debug();
