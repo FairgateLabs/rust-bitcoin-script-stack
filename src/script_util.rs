@@ -47,10 +47,19 @@ pub fn fromaltstack(n: u32) -> Script {
     }
 }
 
-pub fn number_to_nibble_u8(n: u32) -> Script { 
+pub fn number_to_byte(n: u32) -> Script { 
     script! {
        for i in (0..4).rev() { 
             { (n >> (i * 8)) & 0xFF } 
+        } 
+    }
+}
+
+
+pub fn number_16_to_nibble(n: u16) -> Script { 
+    script! {
+       for i in (0..4).rev() { 
+            { (n as u32 >> (i * 4)) & 0xF } 
         } 
     }
 }

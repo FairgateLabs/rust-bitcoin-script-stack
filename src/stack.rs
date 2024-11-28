@@ -498,6 +498,14 @@ impl StackTracker {
         *var
     }
 
+    pub fn join_in_stack(&mut self, depth: u32, size: u32, name: Option<&str>) -> StackVariable {
+        let mut var = self.get_var(depth);
+        if let Some(name) = name {
+            self.rename(var, name);
+        }
+        self.join_count(&mut var, size-1)
+    }
+
     pub fn explode(&mut self, var: StackVariable) -> Vec<StackVariable> {
         let mut ret = Vec::new();
         assert!(self.data.stack.last().unwrap().id == var.id, "Explode is only supported with the last variable on stack" );
@@ -786,8 +794,12 @@ impl StackTracker {
         self.var(8, number_to_nibble(value), &format!("number_u32({:#x})", value))
     }
 
+    pub fn number_u16(&mut self, value: u16) -> StackVariable {
+        self.var(4, number_16_to_nibble(value), &format!("number_u16({:#x})", value))
+    }
+
     pub fn number_u32_u8(&mut self, value: u32) -> StackVariable {
-        self.var(4, number_to_nibble_u8(value), &format!("number_u32_u8({:#x})", value))
+        self.var(4, number_to_byte(value), &format!("number_u32_u8({:#x})", value))
     }
 
 
@@ -1034,6 +1046,25 @@ mod tests {
 
         let (ret,_) = debug_script(script);
         assert!(ret.result().unwrap().success);
+    }
+
+
+    #[test]
+    fn test_join_in_stack() {
+        let mut stack = StackTracker::new();
+        let x = stack.number_u32(0xdeadbeaf);
+        stack.explode(x);
+        let mut a = stack.join_in_stack(7, 4, Some("first-half"));
+        let mut b = stack.join_in_stack(3, 4, Some("second-half"));
+
+        let mut bb = stack.number_u16(0xbeaf);
+        stack.equals(&mut b, true, &mut bb, true);
+
+        let mut aa = stack.number_u16(0xdead);
+        stack.equals(&mut a, true, &mut aa, true);
+
+        stack.op_true();
+        assert!(stack.run().success);
     }
 
     #[test]
