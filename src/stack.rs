@@ -45,6 +45,7 @@ enum RedoOps {
     PopAltstack,
     SetName(StackVariable, String),
     RemoveName(StackVariable),
+    InsertVar(usize, StackVariable),
     RemoveVar(StackVariable),
     DecreaseSize(StackVariable),
     IncreaseSize(usize, u32),
@@ -119,6 +120,15 @@ impl StackData {
         }
     }
 
+    pub fn insert_var(&mut self, pos: usize, var: StackVariable) {
+        self.stack.insert(pos, var);
+        if self.with_redo_log {
+            self.redo_log.push(RedoOps::InsertVar(pos, var));
+        }
+    }
+
+
+
     pub fn increase_size(&mut self, idx: usize, next_size: u32) {
         self.stack[idx].size += next_size;
         if self.with_redo_log {
@@ -148,6 +158,7 @@ impl StackData {
                 RedoOps::SetName(var, name) => new_stack.set_name(*var, name),
                 RedoOps::RemoveName(var) => new_stack.remove_name(*var),
                 RedoOps::RemoveVar(var) => new_stack.remove_var(*var),
+                RedoOps::InsertVar(pos, var) => new_stack.insert_var(*pos, *var),
                 RedoOps::DecreaseSize(var) => new_stack.decrease_size(*var),
                 RedoOps::IncreaseSize(idx, next_size) => new_stack.increase_size(*idx, *next_size),
             }
@@ -187,6 +198,11 @@ impl StackTracker {
             with_history: true,
             breakpoint: Vec::new(),
         }
+    }
+
+    fn remove_var(&mut self, var: StackVariable) {
+        self.data.remove_var(var);
+        self.data.remove_name(var);
     }
 
     fn push(&mut self, var: StackVariable) {
@@ -375,7 +391,7 @@ impl StackTracker {
                 var2.size -= 1;
 
                 if var2.size == 0 {
-                    self.data.remove_var(*var2);
+                    self.remove_var(*var2);
                 }
                 self.define(1, "extracted");
             }
@@ -454,7 +470,7 @@ impl StackTracker {
         self.data.decrease_size(*var);
 
         if var.size == 0 {
-            self.data.remove_var(*var);
+            self.remove_var(*var);
         }
 
         let new_var = StackVariable::new(self.next_counter(), 1);
@@ -463,21 +479,26 @@ impl StackTracker {
         new_var
     }
 
+    fn get_index_var(&self, var: StackVariable) -> usize {
+        for (i, v) in self.data.stack.iter().enumerate() {
+            if var.id == v.id {
+                return i;
+            }
+        }
+        panic!("The var {:?} is not part of the stack", var);
+    }
+
     pub fn join(&mut self, var1: &mut StackVariable) {
 
         let len = self.data.stack.len();
-        for i in 0..len {
-            if self.data.stack[i].id == var1.id {
-                assert!(i + 1 < len, "The variable {:?} is the last one on the stack", var1);
+        let i = self.get_index_var(*var1);
+        assert!(i + 1 < len, "The variable {:?} is the last one on the stack, can't join.", var1);
 
-                let next_size = self.data.stack[i+1].size;
-                var1.size += next_size;
-                self.data.increase_size(i, next_size);
+        let next_size = self.data.stack[i+1].size;
+        var1.size += next_size;
+        self.data.increase_size(i, next_size);
 
-                self.data.remove_var(self.data.stack[i+1]);
-                break;
-            }
-        }
+        self.remove_var(self.data.stack[i+1]);
     }
 
     pub fn get_var(&self, depth: u32) -> StackVariable {
@@ -508,13 +529,14 @@ impl StackTracker {
 
     pub fn explode(&mut self, var: StackVariable) -> Vec<StackVariable> {
         let mut ret = Vec::new();
-        assert!(self.data.stack.last().unwrap().id == var.id, "Explode is only supported with the last variable on stack" );
-        self.data.remove_var(var);
+        let off = self.get_index_var(var);
+        let name = self.get_var_name(var);
+        self.remove_var(var);
         for i in 0..var.size {
             let new_var = StackVariable::new(self.next_counter(), 1);
-            self.rename(new_var, &format!("{}[{}]", self.get_var_name(var), i));
+            self.rename(new_var, &format!("{}[{}]", name, i));
             ret.push(new_var);
-            self.push(new_var);
+            self.data.insert_var(off + i as usize, new_var);
         }
         ret
 
@@ -1056,6 +1078,30 @@ mod tests {
         stack.explode(x);
         let mut a = stack.join_in_stack(7, 4, Some("first-half"));
         let mut b = stack.join_in_stack(3, 4, Some("second-half"));
+
+        let mut bb = stack.number_u16(0xbeaf);
+        stack.equals(&mut b, true, &mut bb, true);
+
+        let mut aa = stack.number_u16(0xdead);
+        stack.equals(&mut a, true, &mut aa, true);
+
+        stack.op_true();
+        assert!(stack.run().success);
+    }
+
+    #[test]
+    fn test_explode_and_join_in_stack() {
+        let mut stack = StackTracker::new();
+        let x = stack.number_u32(0xdeadbeaf);
+        let y = stack.number_u32(0x0);
+        stack.explode(x);
+        stack.debug();
+        let mut a = stack.join_in_stack(7 + 8, 4, Some("first-half"));
+        stack.debug();
+        let mut b = stack.join_in_stack(3 + 8, 4, Some("second-half"));
+        stack.debug();
+
+        stack.drop(y);
 
         let mut bb = stack.number_u16(0xbeaf);
         stack.equals(&mut b, true, &mut bb, true);
