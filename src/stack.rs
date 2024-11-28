@@ -804,6 +804,22 @@ impl StackTracker {
         self.var(1, script!{{value}}, &format!("number({:#x})", value))
     }
 
+    pub fn repeat(&mut self, mut times: u32) -> Vec<StackVariable> {
+        let mut ret = vec![self.op_dup()];
+        times -= 1;
+        for _ in 0..times / 2 {
+            times -= 2;
+            let (a,b) = self.op_2dup();
+            ret.push(a);
+            ret.push(b);
+        }
+        if times == 1 {
+            ret.push(self.op_dup());
+        }
+        ret
+
+    }
+
     pub fn numberi(&mut self, value: i32) -> StackVariable {
         self.var(1, script!{{value}}, &format!("number({:#x})", value))
     }
@@ -924,6 +940,34 @@ mod tests {
         assert!(stack.run().success);
     }
 
+    #[test]
+    fn test_repeat() {
+        let mut stack = StackTracker::new();
+        let _ = stack.number(3);
+        stack.repeat(1);
+        stack.op_equalverify();
+
+
+        let _ = stack.number(2);
+        stack.repeat(2);
+        stack.number(2);
+        stack.op_add();
+        stack.to_altstack();
+        stack.op_add();
+        stack.from_altstack();
+        stack.op_equalverify();
+
+
+        let _ = stack.number(1);
+        stack.repeat(3);
+        stack.op_add();
+        stack.to_altstack();
+        stack.op_add();
+        stack.from_altstack();
+        stack.op_equal();
+
+        assert!(stack.run().success);
+    }
 
     #[test]
     fn test_move_var() {
