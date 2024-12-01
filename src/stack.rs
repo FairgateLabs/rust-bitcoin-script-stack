@@ -13,7 +13,7 @@ use super::script_util::*;
 use hex::FromHex;
 
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, Default, PartialEq, Eq)]
 pub struct StackVariable {
     id: u32,
     size: u32,
@@ -307,6 +307,14 @@ impl StackTracker {
         self.data.pop_stack();
         self.data.remove_name(var);
         self.push_script(drop_count(var.size));
+    }
+
+    pub fn drop_list(&mut self, vars: Vec<StackVariable>) {
+        for _ in 0..vars.len() {
+            let v = self.get_var_from_stack(0);
+            assert!(vars.contains(&v), "The variable {:?} is not in the list of variables to drop", v);
+            self.drop(v);
+        }
     }
 
     pub fn to_altstack(&mut self) -> StackVariable {
