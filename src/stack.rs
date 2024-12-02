@@ -283,6 +283,14 @@ impl StackTracker {
             }, consumes, output_vars, to_altstack)
     }
 
+    pub fn clear_definitions(&mut self) {
+        let vars = self.data.stack.iter().cloned().collect::<Vec<StackVariable>>();
+        for v in vars {
+            self.data.remove_name(v);
+            self.data.pop_stack();
+        }
+    }
+
     pub fn define(&mut self, size: u32, name: &str) -> StackVariable {
         let var = StackVariable::new(self.next_counter(), size);
         self.push(var);
@@ -1039,6 +1047,21 @@ mod tests {
         assert!(ret.result().unwrap().success);
     }
 
+
+    #[test]
+    fn test_clear_definitions() {
+        let mut stack = StackTracker::new();
+        stack.number(1);
+        stack.repeat(7);
+        stack.debug();
+        stack.clear_definitions();
+        let mut x = stack.define(8, "number");
+        stack.debug();
+        let mut y = stack.number_u32(0x1111_1111);
+        stack.equals(&mut x, true, &mut y, true);
+        stack.op_true();
+        assert!(stack.run().success);
+    }
 
     #[test]
     fn test_copy_var_sub_n() {
