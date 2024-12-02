@@ -812,6 +812,17 @@ impl StackTracker {
         self.var(1, script!{{bytes}}, "hexdata")
     }
 
+    pub fn hexstr_as_nibbles(&mut self, value: &str) -> StackVariable {
+        let bytes = Vec::from_hex(value).unwrap();
+        let total = bytes.len() * 2;
+        for b in bytes {
+            self.number((b as u32 & 0xf0) >> 4 );
+            self.number(b as u32 & 0xf);
+        }
+        self.join_in_stack(total as u32 - 1, total as u32, None)
+    }
+
+
     pub fn number(&mut self, value: u32) -> StackVariable {
         self.var(1, script!{{value}}, &format!("number({:#x})", value))
     }
@@ -1462,6 +1473,17 @@ mod tests {
         stack.op_equal();
         assert!(stack.run().success);
 
+    }
+
+    #[test]
+    fn test_hex_as_nibble() {
+        let mut stack = StackTracker::new();
+        let mut a = stack.number_u32(0x4bf5122f);
+        let mut b = stack.hexstr_as_nibbles("4bf5122f");
+        stack.debug();
+        stack.equals(&mut a, true, &mut b, true);
+        stack.op_true();
+        assert!(stack.run().success);
     }
 
     #[test]
