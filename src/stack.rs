@@ -461,8 +461,10 @@ impl StackTracker {
     pub fn copy_var_sub_n(&mut self, var: StackVariable, n: u32) -> StackVariable {
         let offset = self.get_offset(var);
         let offset_n = offset + var.size - 1 - n;
+        let name = self.get_var_name(var);
 
         let new_var = StackVariable::new(self.next_counter(), 1);
+        self.rename(new_var, &format!("copy_{}[{}]", name, n));
         self.push(new_var);
         self.push_script( copy_from(offset_n, 1));
         new_var
@@ -472,6 +474,7 @@ impl StackTracker {
         assert!(var.size > n, "The variable {:?} is not big enough to move n={}", var, n);
         let offset = self.get_offset(*var);
         let offset_n = offset + var.size - 1 - n;
+        let name = self.get_var_name(*var);
 
         var.size -= 1;
         
@@ -482,6 +485,7 @@ impl StackTracker {
         }
 
         let new_var = StackVariable::new(self.next_counter(), 1);
+        self.rename(new_var, &format!("{}[{}]", name, n));
         self.push(new_var);
         self.push_script( move_from(offset_n, 1));
         new_var
