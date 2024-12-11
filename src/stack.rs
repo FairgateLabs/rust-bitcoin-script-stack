@@ -300,6 +300,7 @@ impl StackTracker {
 
     pub fn rename(&mut self, var: StackVariable, name: &str) {
         self.data.set_name(var, name);
+        self.push_script(script!{});
     }
     
     pub fn drop(&mut self, var: StackVariable) {
@@ -590,6 +591,13 @@ impl StackTracker {
         } else {
             Some(ret[0])
         }
+    }
+
+    pub fn reverse_u32(&mut self, var: StackVariable) {
+        if var.size != 8 {
+            panic!("The variable {:?} is not 8 elements long", var);
+        }
+        self.custom(reverse_u32(), 0, false, 0, "");
     }
 
     fn op(&mut self, op: Opcode, consumes: u32, output: bool, name: &str ) -> Option<StackVariable> {
@@ -1463,6 +1471,20 @@ mod tests {
         assert!(stack.run().success);
 
     }
+
+    #[test]
+    fn test_reverse_u32() {
+        let mut stack = StackTracker::new();
+
+        let mut x = stack.number_u32(0x12345678);
+        stack.reverse_u32(x);
+        let mut y = stack.number_u32(0x87654321);
+        stack.equals(&mut x, true, &mut y, true);
+        stack.op_true();
+        assert!(stack.run().success);
+
+    }
+
 
     #[test]
     fn test_hash_functions() {

@@ -90,3 +90,18 @@ pub fn verify_n(n: u32) -> Script {
         }
     }
 }
+
+pub fn reverse_u32() -> Script {
+    script! {
+        OP_SWAP
+        OP_ROT
+        3
+        OP_ROLL
+        OP_2ROT
+        OP_SWAP
+        6
+        OP_ROLL
+        7
+        OP_ROLL
+    }
+}
