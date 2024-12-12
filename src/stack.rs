@@ -479,18 +479,20 @@ impl StackTracker {
         new_var
     }
 
-    pub fn move_var_sub_n(&mut self, var: &mut StackVariable, n: u32) -> StackVariable {
+    pub fn move_var_sub_n(&mut self, user_var: &mut StackVariable, n: u32) -> StackVariable {
+        let offset = self.get_offset(*user_var);
+        let mut var = self.get_var(offset);
         assert!(var.size > n, "The variable {:?} is not big enough to move n={}", var, n);
-        let offset = self.get_offset(*var);
         let offset_n = offset + var.size - 1 - n;
-        let name = self.get_var_name(*var);
+        let name = self.get_var_name(var);
 
+        user_var.size -= 1;
         var.size -= 1;
         
-        self.data.decrease_size(*var);
+        self.data.decrease_size(var);
 
         if var.size == 0 {
-            self.remove_var(*var);
+            self.remove_var(var);
         }
 
         let new_var = StackVariable::new(self.next_counter(), 1);
