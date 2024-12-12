@@ -469,6 +469,7 @@ impl StackTracker {
 
     pub fn copy_var_sub_n(&mut self, var: StackVariable, n: u32) -> StackVariable {
         let offset = self.get_offset(var);
+        let var = self.get_var(offset);
         let offset_n = offset + var.size - 1 - n;
         let name = self.get_var_name(var);
 
