@@ -310,12 +310,19 @@ impl StackTracker {
         self.data.set_name(var, name);
         self.push_script(script!{});
     }
+
+    pub fn get_size(&self, var: StackVariable) -> u32 {
+        let offset = self.get_offset(var);
+        let var = self.get_var(offset);
+        var.size
+    }
     
     pub fn drop(&mut self, var: StackVariable) {
         assert!(self.data.stack.last().unwrap().id == var.id);
+        let size = self.get_size(var);
         self.data.pop_stack();
         self.data.remove_name(var);
-        self.push_script(drop_count(var.size));
+        self.push_script(drop_count(size));
     }
 
     pub fn drop_list(&mut self, vars: Vec<StackVariable>) {
@@ -377,21 +384,23 @@ impl StackTracker {
 
     pub fn move_var(&mut self, var: StackVariable) -> StackVariable {
         let offset = self.get_offset(var);
+        let size = self.get_size(var);
         if offset == 0 {
             return var;
         }
         self.data.remove_var(var);
         self.push(var);
-        self.push_script( move_from(offset, var.size));
+        self.push_script( move_from(offset, size));
         var
     }
     
     pub fn copy_var(&mut self, var: StackVariable) -> StackVariable {
         let offset = self.get_offset(var);
-        let new_var = StackVariable::new(self.next_counter(), var.size);
+        let size = self.get_size(var);
+        let new_var = StackVariable::new(self.next_counter(), size);
         self.push(new_var);
         self.rename(new_var, &format!("copy({})", self.data.names[&var.id]));
-        self.push_script( copy_from(offset, var.size));
+        self.push_script( copy_from(offset, size));
         new_var
     }
 
@@ -555,8 +564,9 @@ impl StackTracker {
         let mut ret = Vec::new();
         let off = self.get_index_var(var);
         let name = self.get_var_name(var);
+        let size = self.get_size(var);
         self.remove_var(var);
-        for i in 0..var.size {
+        for i in 0..size {
             let new_var = StackVariable::new(self.next_counter(), 1);
             self.rename(new_var, &format!("{}[{}]", name, i));
             ret.push(new_var);
@@ -605,7 +615,8 @@ impl StackTracker {
     }
 
     pub fn reverse_u32(&mut self, var: StackVariable) {
-        if var.size != 8 {
+        let size = self.get_size(var);
+        if size != 8 {
             panic!("The variable {:?} is not 8 elements long", var);
         }
         self.custom(reverse_u32(), 0, false, 0, "");
@@ -1029,9 +1040,12 @@ mod tests {
         let mut stack = StackTracker::new();
         let x = stack.number_u32(1234);
         let y = stack.number_u32(2345);
+        stack.debug();
         let _ = stack.copy_var(x);
         let _ = stack.number_u32(1234);
+        stack.debug();
         stack.custom(script!{ {verify_n(8)} }, 2, false, 0, "verify");
+        stack.debug();
         stack.drop(y);
         stack.drop(x);
         stack.op_true();
