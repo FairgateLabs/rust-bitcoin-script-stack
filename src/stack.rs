@@ -515,7 +515,7 @@ impl StackTracker {
         panic!("The var {:?} is not part of the stack", var);
     }
 
-    pub fn get_var_from_stack(&self, depth: u32) -> StackVariable {
+    fn get_var_from_stack(&self, depth: u32) -> StackVariable {
         self.data.stack[self.data.stack.len() - 1 - depth as usize]
     }
     
@@ -523,7 +523,8 @@ impl StackTracker {
         self.data.names[&var.id].clone()
     }
 
-    pub fn get_script_len(&self) -> usize {
+    #[cfg(feature = "interactive")]
+    pub(crate) fn get_script_len(&self) -> usize {
         self.script.len()
     }
 
@@ -595,7 +596,7 @@ impl StackTracker {
         self.remove_var(self.data.stack[i+1]);
     }
 
-    pub fn get_var(&self, depth: u32) -> StackVariable {
+    fn get_var(&self, depth: u32) -> StackVariable {
         let mut count = 0;
         for v in self.data.stack.iter().rev() {
             if count == depth {
@@ -613,8 +614,10 @@ impl StackTracker {
         *var
     }
 
+    //define the top of the stack as depth 1 (even though it's usually 0, but it's easier to understand)
     pub fn join_in_stack(&mut self, depth: u32, size: u32, name: Option<&str>) -> StackVariable {
-        let mut var = self.get_var(depth);
+        assert!(depth > 0, "The depth must be greater than 0");
+        let mut var = self.get_var(depth-1);
         if let Some(name) = name {
             self.rename(var, name);
         }
@@ -915,7 +918,7 @@ impl StackTracker {
             self.number((b as u32 & 0xf0) >> 4 );
             self.number(b as u32 & 0xf);
         }
-        self.join_in_stack(total as u32 - 1, total as u32, None)
+        self.join_in_stack(total as u32, total as u32, None)
     }
 
 
@@ -1258,8 +1261,8 @@ mod tests {
         let mut stack = StackTracker::new();
         let x = stack.number_u32(0xdeadbeaf);
         stack.explode(x);
-        let a = stack.join_in_stack(7, 4, Some("first-half"));
-        let b = stack.join_in_stack(3, 4, Some("second-half"));
+        let a = stack.join_in_stack(8, 4, Some("first-half"));
+        let b = stack.join_in_stack(4, 4, Some("second-half"));
 
         let bb = stack.number_u16(0xbeaf);
         stack.equals(b, true, bb, true);
@@ -1278,9 +1281,9 @@ mod tests {
         let y = stack.number_u32(0x0);
         stack.explode(x);
         stack.debug();
-        let a = stack.join_in_stack(7 + 8, 4, Some("first-half"));
+        let a = stack.join_in_stack(8 + 8, 4, Some("first-half"));
         stack.debug();
-        let b = stack.join_in_stack(3 + 8, 4, Some("second-half"));
+        let b = stack.join_in_stack(4 + 8, 4, Some("second-half"));
         stack.debug();
 
         stack.drop(y);
