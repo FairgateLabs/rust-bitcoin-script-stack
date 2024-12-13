@@ -372,6 +372,10 @@ impl StackTracker {
         self.data.sizes[&var.id]
     }
     
+    pub fn drop_var(&mut self) {
+        self.drop(self.get_var_from_stack(0));
+    }
+
     pub fn drop(&mut self, var: StackVariable) {
         assert!(self.data.stack.last().unwrap().id == var.id);
         let size = self.get_size(var);
