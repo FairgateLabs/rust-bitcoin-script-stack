@@ -615,13 +615,13 @@ impl StackTracker {
     }
 
     //define the top of the stack as depth 1 (even though it's usually 0, but it's easier to understand)
-    pub fn join_in_stack(&mut self, depth: u32, size: u32, name: Option<&str>) -> StackVariable {
+    pub fn join_in_stack(&mut self, depth: u32, size: Option<u32>, name: Option<&str>) -> StackVariable {
         assert!(depth > 0, "The depth must be greater than 0");
         let mut var = self.get_var(depth-1);
         if let Some(name) = name {
             self.rename(var, name);
         }
-        self.join_count(&mut var, size-1)
+        self.join_count(&mut var, size.unwrap_or(depth)-1)
     }
 
     pub fn explode(&mut self, var: StackVariable) -> Vec<StackVariable> {
@@ -918,7 +918,7 @@ impl StackTracker {
             self.number((b as u32 & 0xf0) >> 4 );
             self.number(b as u32 & 0xf);
         }
-        self.join_in_stack(total as u32, total as u32, None)
+        self.join_in_stack(total as u32, None, None)
     }
 
 
@@ -1261,8 +1261,8 @@ mod tests {
         let mut stack = StackTracker::new();
         let x = stack.number_u32(0xdeadbeaf);
         stack.explode(x);
-        let a = stack.join_in_stack(8, 4, Some("first-half"));
-        let b = stack.join_in_stack(4, 4, Some("second-half"));
+        let a = stack.join_in_stack(8, Some(4), Some("first-half"));
+        let b = stack.join_in_stack(4, None, Some("second-half"));
 
         let bb = stack.number_u16(0xbeaf);
         stack.equals(b, true, bb, true);
@@ -1281,9 +1281,9 @@ mod tests {
         let y = stack.number_u32(0x0);
         stack.explode(x);
         stack.debug();
-        let a = stack.join_in_stack(8 + 8, 4, Some("first-half"));
+        let a = stack.join_in_stack(8 + 8, Some(4), Some("first-half"));
         stack.debug();
-        let b = stack.join_in_stack(4 + 8, 4, Some("second-half"));
+        let b = stack.join_in_stack(4 + 8, Some(4), Some("second-half"));
         stack.debug();
 
         stack.drop(y);
