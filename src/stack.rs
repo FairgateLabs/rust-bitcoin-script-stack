@@ -1,17 +1,16 @@
 use std::collections::HashMap;
 
-use bitcoin::{opcodes::OP_TRUE, Opcode};
 use bitcoin::opcodes::all::*;
+use bitcoin::{opcodes::OP_TRUE, Opcode};
 
 pub use bitcoin_script::{define_pushable, script};
 define_pushable!();
 pub use bitcoin::ScriptBuf as Script;
 
-use crate::debugger::{execute_step, print_execute_step, show_altstack, show_stack, StepResult};
 use super::script_util::*;
+use crate::debugger::{execute_step, print_execute_step, show_altstack, show_stack, StepResult};
 
 use hex::FromHex;
-
 
 #[derive(Clone, Debug, Copy, Default, PartialEq, Eq)]
 pub struct StackVariable {
@@ -29,7 +28,7 @@ impl StackVariable {
         self.id == 0
     }
     pub fn id(&self) -> u32 {
-        self.id 
+        self.id
     }
 }
 
@@ -67,7 +66,7 @@ impl StackData {
             names: HashMap::new(),
             sizes: HashMap::new(),
             redo_log: Vec::new(),
-            with_redo_log
+            with_redo_log,
         }
     }
 
@@ -112,7 +111,7 @@ impl StackData {
 
     pub fn set_size(&mut self, var: StackVariable, size: u32) {
         if self.with_redo_log {
-            self.redo_log.push(RedoOps::SetSize(var,size));
+            self.redo_log.push(RedoOps::SetSize(var, size));
         }
         self.sizes.insert(var.id, size);
     }
@@ -130,7 +129,7 @@ impl StackData {
             self.redo_log.push(RedoOps::SetName(var, name.to_string()));
         }
     }
-    
+
     pub fn remove_name(&mut self, var: StackVariable) {
         self.names.remove(&var.id);
         if self.with_redo_log {
@@ -151,8 +150,6 @@ impl StackData {
             self.redo_log.push(RedoOps::InsertVar(pos, var));
         }
     }
-
-
 
     pub fn increase_size(&mut self, idx: usize, next_size: u32) {
         let id = self.stack[idx].id;
@@ -177,8 +174,12 @@ impl StackData {
             match &self.redo_log[i] {
                 RedoOps::PushStack(var) => new_stack.push_stack(*var),
                 RedoOps::PushAltstack(var) => new_stack.push_altstack(*var),
-                RedoOps::PopStack => { let _ = new_stack.pop_stack(); },
-                RedoOps::PopAltstack => { let _ = new_stack.pop_altstack(); },
+                RedoOps::PopStack => {
+                    let _ = new_stack.pop_stack();
+                }
+                RedoOps::PopAltstack => {
+                    let _ = new_stack.pop_altstack();
+                }
                 RedoOps::SetSize(var, size) => new_stack.set_size(*var, *size),
                 RedoOps::RemoveSize(var) => new_stack.remove_size(*var),
                 RedoOps::SetName(var, name) => new_stack.set_name(*var, name),
@@ -191,8 +192,6 @@ impl StackData {
         }
         new_stack
     }
-
-
 }
 
 #[derive(Clone, Debug)]
@@ -208,7 +207,7 @@ pub struct StackTracker {
 
 impl Default for StackTracker {
     fn default() -> Self {
-         Self::new()
+        Self::new()
     }
 }
 
@@ -221,9 +220,8 @@ impl StackTracker {
         println!("Sizes: {:?}", self.data.sizes.len());
         println!("Redo log: {:?}", self.data.redo_log.len());
         println!("History: {:?}", self.history.len());
-
     }
-    
+
     pub fn clone_cheap(&self) -> Self {
         StackTracker {
             data: self.data.clone_cheap(),
@@ -256,7 +254,11 @@ impl StackTracker {
 
     fn push(&mut self, var: StackVariable) {
         self.data.push_stack(var);
-        let totalsize = self.data.stack.iter().fold(0, |acc, f| acc + self.get_size(*f ));
+        let totalsize = self
+            .data
+            .stack
+            .iter()
+            .fold(0, |acc, f| acc + self.get_size(*f));
         self.max_stack_size = self.max_stack_size.max(totalsize);
     }
 
@@ -268,11 +270,12 @@ impl StackTracker {
     }
 
     pub fn set_breakpoint(&mut self, name: &str) {
-        self.push_script(script!{});
-        self.breakpoint.push((self.script.len()as u32 - 1, name.to_string()));
+        self.push_script(script! {});
+        self.breakpoint
+            .push((self.script.len() as u32 - 1, name.to_string()));
     }
 
-    pub fn get_next_breakpoint(&self, from:u32) -> Option<(u32, String)> {
+    pub fn get_next_breakpoint(&self, from: u32) -> Option<(u32, String)> {
         for (pos, name) in self.breakpoint.iter() {
             if *pos > from {
                 let pos = *pos;
@@ -283,7 +286,7 @@ impl StackTracker {
         None
     }
 
-    pub fn get_prev_breakpoint(&self, from:u32) -> Option<(u32, String)> {
+    pub fn get_prev_breakpoint(&self, from: u32) -> Option<(u32, String)> {
         let mut ret = None;
         for (pos, name) in self.breakpoint.iter() {
             if *pos < from {
@@ -295,7 +298,6 @@ impl StackTracker {
         }
         ret
     }
-
 
     pub fn get_max_stack_size(&self) -> u32 {
         self.max_stack_size
@@ -314,7 +316,7 @@ impl StackTracker {
         };
         if_true.op_drop();
         if_false.op_drop();
-        self.custom(script!{ OP_IF }, 1, false, 0, "open_if");
+        self.custom(script! { OP_IF }, 1, false, 0, "open_if");
         (if_true, if_false)
     }
 
@@ -329,18 +331,39 @@ impl StackTracker {
         self.open_if_internal(false)
     }
 
-    pub fn end_if(&mut self, if_true: StackTracker, if_false: StackTracker, consumes:u32, output_vars: Vec<(u32, String)>, to_altstack: u32) -> Vec<StackVariable> {
-        let from = if if_true.with_history { self.script.len() } else { 1 };
-        self.custom_ex(script! {
+    pub fn end_if(
+        &mut self,
+        if_true: StackTracker,
+        if_false: StackTracker,
+        consumes: u32,
+        output_vars: Vec<(u32, String)>,
+        to_altstack: u32,
+    ) -> Vec<StackVariable> {
+        let from = if if_true.with_history {
+            self.script.len()
+        } else {
+            1
+        };
+        self.custom_ex(
+            script! {
                 { if_true.get_script_from(from) }
                 OP_ELSE
                 { if_false.get_script_from(from)}
                 OP_ENDIF
-            }, consumes, output_vars, to_altstack)
+            },
+            consumes,
+            output_vars,
+            to_altstack,
+        )
     }
 
     pub fn clear_definitions(&mut self) {
-        let vars = self.data.stack.iter().cloned().collect::<Vec<StackVariable>>();
+        let vars = self
+            .data
+            .stack
+            .iter()
+            .cloned()
+            .collect::<Vec<StackVariable>>();
         for v in vars {
             self.data.remove_name(v);
             self.data.pop_stack();
@@ -356,7 +379,7 @@ impl StackTracker {
     }
 
     pub fn var(&mut self, size: u32, script: Script, name: &str) -> StackVariable {
-        let var = StackVariable::new( self.next_counter());
+        let var = StackVariable::new(self.next_counter());
         self.data.set_size(var, size);
         self.push(var);
         self.data.set_name(var, name);
@@ -371,7 +394,7 @@ impl StackTracker {
     pub fn get_size(&self, var: StackVariable) -> u32 {
         self.data.sizes[&var.id]
     }
-    
+
     pub fn drop_var(&mut self) {
         self.drop(self.get_var_from_stack(0));
     }
@@ -387,7 +410,11 @@ impl StackTracker {
     pub fn drop_list(&mut self, vars: Vec<StackVariable>) {
         for _ in 0..vars.len() {
             let v = self.get_var_from_stack(0);
-            assert!(vars.contains(&v), "The variable {:?} is not in the list of variables to drop", v);
+            assert!(
+                vars.contains(&v),
+                "The variable {:?} is not in the list of variables to drop",
+                v
+            );
             self.drop(v);
         }
     }
@@ -395,7 +422,7 @@ impl StackTracker {
     pub fn to_altstack(&mut self) -> StackVariable {
         let var = self.data.pop_stack();
         self.data.push_altstack(var);
-        self.push_script( toaltstack(self.get_size(var)) );
+        self.push_script(toaltstack(self.get_size(var)));
         var
     }
 
@@ -406,13 +433,12 @@ impl StackTracker {
             ret.push(var);
         }
         ret
-   }
-
+    }
 
     pub fn from_altstack(&mut self) -> StackVariable {
         let var = self.data.pop_altstack();
         self.push(var);
-        self.push_script( fromaltstack(self.get_size(var)) );
+        self.push_script(fromaltstack(self.get_size(var)));
         var
     }
 
@@ -441,14 +467,13 @@ impl StackTracker {
         }
     }
 
-    pub fn get_script_from(&self, from:usize) -> Script {
+    pub fn get_script_from(&self, from: usize) -> Script {
         script! {
             for s in self.script.iter().skip(from) {
                 { s.clone() }
             }
         }
     }
-
 
     pub fn move_var(&mut self, var: StackVariable) -> StackVariable {
         let offset = self.get_offset(var);
@@ -458,10 +483,10 @@ impl StackTracker {
         }
         self.data.remove_var(var);
         self.push(var);
-        self.push_script( move_from(offset, size));
+        self.push_script(move_from(offset, size));
         var
     }
-    
+
     pub fn copy_var(&mut self, var: StackVariable) -> StackVariable {
         let offset = self.get_offset(var);
         let size = self.get_size(var);
@@ -469,16 +494,32 @@ impl StackTracker {
         self.data.set_size(new_var, size);
         self.push(new_var);
         self.rename(new_var, &format!("copy({})", self.data.names[&var.id]));
-        self.push_script( copy_from(offset, size));
+        self.push_script(copy_from(offset, size));
         new_var
     }
 
     // if var2 is going to be consumed and it is at the top of the stack it avoid moving it
-    pub fn equals(&mut self, var1: StackVariable, consume_1: bool, var2: StackVariable, consume_2: bool) {
-        assert_eq!(self.get_size(var1), self.get_size(var2), "The variables {:?} and {:?} are not the same size", var1, var2);
-        assert_ne!(var1.id, var2.id, "The variables {:?} and {:?} are the same", var1, var2);
+    pub fn equals(
+        &mut self,
+        var1: StackVariable,
+        consume_1: bool,
+        var2: StackVariable,
+        consume_2: bool,
+    ) {
+        assert_eq!(
+            self.get_size(var1),
+            self.get_size(var2),
+            "The variables {:?} and {:?} are not the same size",
+            var1,
+            var2
+        );
+        assert_ne!(
+            var1.id, var2.id,
+            "The variables {:?} and {:?} are the same",
+            var1, var2
+        );
 
-        let dont_move = consume_2 && self.data.stack.last().unwrap().id == var2.id; 
+        let dont_move = consume_2 && self.data.stack.last().unwrap().id == var2.id;
 
         for i in 0..self.get_size(var1) {
             if dont_move {
@@ -505,7 +546,6 @@ impl StackTracker {
             }
             self.op_equalverify();
         }
-
     }
 
     pub fn get_offset(&self, var: StackVariable) -> u32 {
@@ -522,7 +562,7 @@ impl StackTracker {
     fn get_var_from_stack(&self, depth: u32) -> StackVariable {
         self.data.stack[self.data.stack.len() - 1 - depth as usize]
     }
-    
+
     pub fn get_var_name(&self, var: StackVariable) -> String {
         self.data.names[&var.id].clone()
     }
@@ -533,10 +573,9 @@ impl StackTracker {
     }
 
     pub fn run(&self) -> StepResult {
-        execute_step(self, self.script.len()-1)
+        execute_step(self, self.script.len() - 1)
     }
 
- 
     pub fn show_stack(&self) {
         show_stack(&self.data, vec![]);
     }
@@ -555,16 +594,21 @@ impl StackTracker {
         self.data.set_size(new_var, 1);
         self.rename(new_var, &format!("copy_{}[{}]", name, n));
         self.push(new_var);
-        self.push_script( copy_from(offset_n, 1));
+        self.push_script(copy_from(offset_n, 1));
         new_var
     }
 
     pub fn move_var_sub_n(&mut self, var: StackVariable, n: u32) -> StackVariable {
         let offset = self.get_offset(var);
-        assert!(self.get_size(var) > n, "The variable {:?} is not big enough to move n={}", var, n);
+        assert!(
+            self.get_size(var) > n,
+            "The variable {:?} is not big enough to move n={}",
+            var,
+            n
+        );
         let offset_n = offset + self.get_size(var) - n - 1;
         let name = self.get_var_name(var);
-        
+
         self.data.decrease_size(var);
 
         if self.get_size(var) == 0 {
@@ -575,7 +619,7 @@ impl StackTracker {
         self.data.set_size(new_var, 1);
         self.rename(new_var, &format!("{}[{}]", name, n));
         self.push(new_var);
-        self.push_script( move_from(offset_n, 1));
+        self.push_script(move_from(offset_n, 1));
         new_var
     }
 
@@ -589,15 +633,18 @@ impl StackTracker {
     }
 
     pub fn join(&mut self, var1: &mut StackVariable) {
-
         let len = self.data.stack.len();
         let i = self.get_index_var(*var1);
-        assert!(i + 1 < len, "The variable {:?} is the last one on the stack, can't join.", var1);
+        assert!(
+            i + 1 < len,
+            "The variable {:?} is the last one on the stack, can't join.",
+            var1
+        );
 
-        let next_size = self.get_size(self.data.stack[i+1]);
+        let next_size = self.get_size(self.data.stack[i + 1]);
         self.data.increase_size(i, next_size);
 
-        self.remove_var(self.data.stack[i+1]);
+        self.remove_var(self.data.stack[i + 1]);
     }
 
     fn get_var(&self, depth: u32) -> StackVariable {
@@ -619,13 +666,18 @@ impl StackTracker {
     }
 
     //define the top of the stack as depth 1 (even though it's usually 0, but it's easier to understand)
-    pub fn join_in_stack(&mut self, depth: u32, size: Option<u32>, name: Option<&str>) -> StackVariable {
+    pub fn join_in_stack(
+        &mut self,
+        depth: u32,
+        size: Option<u32>,
+        name: Option<&str>,
+    ) -> StackVariable {
         assert!(depth > 0, "The depth must be greater than 0");
-        let mut var = self.get_var(depth-1);
+        let mut var = self.get_var(depth - 1);
         if let Some(name) = name {
             self.rename(var, name);
         }
-        self.join_count(&mut var, size.unwrap_or(depth)-1)
+        self.join_count(&mut var, size.unwrap_or(depth) - 1)
     }
 
     pub fn explode(&mut self, var: StackVariable) -> Vec<StackVariable> {
@@ -642,11 +694,15 @@ impl StackTracker {
             self.data.insert_var(off + i as usize, new_var);
         }
         ret
-
     }
 
-    pub fn custom_ex(&mut self, script: Script, consumes: u32, output_vars: Vec<(u32, String )> , to_altstack: u32) -> Vec<StackVariable> {
-
+    pub fn custom_ex(
+        &mut self,
+        script: Script,
+        consumes: u32,
+        output_vars: Vec<(u32, String)>,
+        to_altstack: u32,
+    ) -> Vec<StackVariable> {
         for _ in 0..consumes {
             let x = self.data.pop_stack();
             self.remove_var(x);
@@ -666,14 +722,20 @@ impl StackTracker {
             let var = StackVariable::new(self.next_counter());
             self.data.push_altstack(var);
             self.data.set_size(var, 1);
-            
         }
 
         self.push_script(script);
         vec![]
     }
 
-    pub fn custom(&mut self, script: Script, consumes: u32, output: bool, to_altstack: u32, name: &str ) -> Option<StackVariable> {
+    pub fn custom(
+        &mut self,
+        script: Script,
+        consumes: u32,
+        output: bool,
+        to_altstack: u32,
+        name: &str,
+    ) -> Option<StackVariable> {
         let mut output_vec = vec![];
         if output {
             output_vec.push((1 as u32, name.to_string()));
@@ -694,7 +756,7 @@ impl StackTracker {
         self.custom(reverse_u32(), 0, false, 0, "");
     }
 
-    fn op(&mut self, op: Opcode, consumes: u32, output: bool, name: &str ) -> Option<StackVariable> {
+    fn op(&mut self, op: Opcode, consumes: u32, output: bool, name: &str) -> Option<StackVariable> {
         let mut s = Script::new();
         s.push_opcode(op);
         self.custom(s, consumes, output, 0, name)
@@ -757,7 +819,8 @@ impl StackTracker {
     }
 
     pub fn op_numnotequal(&mut self) -> StackVariable {
-        self.op(OP_NUMNOTEQUAL, 2, true, "OP_NUMNOTEQUAL()").unwrap()
+        self.op(OP_NUMNOTEQUAL, 2, true, "OP_NUMNOTEQUAL()")
+            .unwrap()
     }
 
     pub fn op_lessthan(&mut self) -> StackVariable {
@@ -765,15 +828,18 @@ impl StackTracker {
     }
 
     pub fn op_lessthanorequal(&mut self) -> StackVariable {
-        self.op(OP_LESSTHANOREQUAL, 2, true, "OP_LESSTHANOREQUAL()").unwrap()
+        self.op(OP_LESSTHANOREQUAL, 2, true, "OP_LESSTHANOREQUAL()")
+            .unwrap()
     }
 
     pub fn op_greaterthan(&mut self) -> StackVariable {
-        self.op(OP_GREATERTHAN, 2, true, "OP_GREATERTHAN()").unwrap()
+        self.op(OP_GREATERTHAN, 2, true, "OP_GREATERTHAN()")
+            .unwrap()
     }
 
     pub fn op_greaterthanorequal(&mut self) -> StackVariable {
-        self.op(OP_GREATERTHANOREQUAL, 2, true, "OP_GREATERTHANOREQUAL()").unwrap()
+        self.op(OP_GREATERTHANOREQUAL, 2, true, "OP_GREATERTHANOREQUAL()")
+            .unwrap()
     }
 
     pub fn op_numequalverify(&mut self) {
@@ -819,27 +885,31 @@ impl StackTracker {
     }
 
     pub fn op_tuck(&mut self) -> StackVariable {
-
-        let var = StackVariable::new( self.next_counter());
+        let var = StackVariable::new(self.next_counter());
         self.data.set_size(var, 1);
         let x = self.data.pop_stack();
         let y = self.data.pop_stack();
-        assert!(self.get_size(x) == 1 && self.get_size(y) == 1, "OP_TUCK requires two elements of size 1");
+        assert!(
+            self.get_size(x) == 1 && self.get_size(y) == 1,
+            "OP_TUCK requires two elements of size 1"
+        );
 
         self.push(var);
         self.push(y);
         self.push(x);
         self.data.set_name(var, "OP_TUCK()");
-        self.push_script(script!{OP_TUCK});
+        self.push_script(script! {OP_TUCK});
         var
-
     }
 
     pub fn op_rot(&mut self) {
         let x = self.data.pop_stack();
         let y = self.data.pop_stack();
         let z = self.data.pop_stack();
-        assert!(self.get_size(x) == 1 && self.get_size(y) == 1 && self.get_size(z) == 1, "OP_ROT requires three elements of size 1");
+        assert!(
+            self.get_size(x) == 1 && self.get_size(y) == 1 && self.get_size(z) == 1,
+            "OP_ROT requires three elements of size 1"
+        );
         self.data.push_stack(y);
         self.data.push_stack(x);
         self.data.push_stack(z);
@@ -862,13 +932,12 @@ impl StackTracker {
         self.op(OP_2ROT, 0, false, "OP_2ROT()");
     }
 
-
     pub fn op_over(&mut self) -> StackVariable {
         let x = self.get_var_from_stack(1);
         let name = self.get_var_name(x);
         self.op(OP_OVER, 0, true, &name).unwrap()
     }
-    
+
     pub fn op_2over(&mut self) -> (StackVariable, StackVariable) {
         let x = self.get_var_from_stack(3);
         let name = self.get_var_name(x);
@@ -889,45 +958,48 @@ impl StackTracker {
     pub fn op_sha256(&mut self) -> StackVariable {
         let x = self.get_var_from_stack(0);
         let name = self.get_var_name(x);
-        self.op(OP_SHA256, 1, true, &format!("sha256({})",name)).unwrap()
+        self.op(OP_SHA256, 1, true, &format!("sha256({})", name))
+            .unwrap()
     }
 
     pub fn op_hash160(&mut self) -> StackVariable {
         let x = self.get_var_from_stack(0);
         let name = self.get_var_name(x);
-        self.op(OP_HASH160, 1, true, &format!("hash160({})",name)).unwrap()
+        self.op(OP_HASH160, 1, true, &format!("hash160({})", name))
+            .unwrap()
     }
 
     pub fn op_hash256(&mut self) -> StackVariable {
         let x = self.get_var_from_stack(0);
         let name = self.get_var_name(x);
-        self.op(OP_HASH256, 1, true, &format!("hash256({})",name)).unwrap()
+        self.op(OP_HASH256, 1, true, &format!("hash256({})", name))
+            .unwrap()
     }
 
     pub fn op_ripemd160(&mut self) -> StackVariable {
         let x = self.get_var_from_stack(0);
         let name = self.get_var_name(x);
-        self.op(OP_RIPEMD160, 1, true, &format!("ripemd160({})",name)).unwrap()
+        self.op(OP_RIPEMD160, 1, true, &format!("ripemd160({})", name))
+            .unwrap()
     }
 
     pub fn hexstr(&mut self, value: &str) -> StackVariable {
         let bytes = Vec::from_hex(value).unwrap();
-        self.var(1, script!{{bytes}}, "hexdata")
+        self.var(1, script! {{bytes}}, "hexdata")
     }
 
     pub fn hexstr_as_nibbles(&mut self, value: &str) -> StackVariable {
         let bytes = Vec::from_hex(value).unwrap();
         let total = bytes.len() * 2;
         for b in bytes {
-            self.number((b as u32 & 0xf0) >> 4 );
+            self.number((b as u32 & 0xf0) >> 4);
             self.number(b as u32 & 0xf);
         }
         self.join_in_stack(total as u32, None, None)
     }
 
-
     pub fn number(&mut self, value: u32) -> StackVariable {
-        self.var(1, script!{{value}}, &format!("number({:#x})", value))
+        self.var(1, script! {{value}}, &format!("number({:#x})", value))
     }
 
     pub fn repeat(&mut self, mut times: u32) -> Vec<StackVariable> {
@@ -935,7 +1007,7 @@ impl StackTracker {
         times -= 1;
         for _ in 0..times / 2 {
             times -= 2;
-            let (a,b) = self.op_2dup();
+            let (a, b) = self.op_2dup();
             ret.push(a);
             ret.push(b);
         }
@@ -943,11 +1015,10 @@ impl StackTracker {
             ret.push(self.op_dup());
         }
         ret
-
     }
 
     pub fn numberi(&mut self, value: i32) -> StackVariable {
-        self.var(1, script!{{value}}, &format!("number({:#x})", value))
+        self.var(1, script! {{value}}, &format!("number({:#x})", value))
     }
 
     pub fn byte(&mut self, value: u8) -> StackVariable {
@@ -955,17 +1026,28 @@ impl StackTracker {
     }
 
     pub fn number_u32(&mut self, value: u32) -> StackVariable {
-        self.var(8, number_to_nibble(value), &format!("number_u32({:#x})", value))
+        self.var(
+            8,
+            number_to_nibble(value),
+            &format!("number_u32({:#x})", value),
+        )
     }
 
     pub fn number_u16(&mut self, value: u16) -> StackVariable {
-        self.var(4, number_16_to_nibble(value), &format!("number_u16({:#x})", value))
+        self.var(
+            4,
+            number_16_to_nibble(value),
+            &format!("number_u16({:#x})", value),
+        )
     }
 
     pub fn number_u32_u8(&mut self, value: u32) -> StackVariable {
-        self.var(4, number_to_byte(value), &format!("number_u32_u8({:#x})", value))
+        self.var(
+            4,
+            number_to_byte(value),
+            &format!("number_u32_u8({:#x})", value),
+        )
     }
-
 
     pub fn op_true(&mut self) -> StackVariable {
         self.op(OP_TRUE, 0, true, "OP_TRUE").unwrap()
@@ -987,7 +1069,7 @@ impl StackTracker {
         self.op(OP_DEPTH, 0, true, "OP_DEPTH").unwrap()
     }
 
-    pub fn op_nip(&mut self)  {
+    pub fn op_nip(&mut self) {
         let x = self.data.pop_stack();
         self.data.pop_stack();
         self.data.push_stack(x);
@@ -997,7 +1079,7 @@ impl StackTracker {
     pub fn op_dup(&mut self) -> StackVariable {
         self.op(OP_DUP, 0, true, "OP_DUP").unwrap()
     }
-    
+
     pub fn op_2dup(&mut self) -> (StackVariable, StackVariable) {
         let x = self.define(1, "OP_DUP");
         (x, self.op(OP_2DUP, 0, true, "OP_DUP").unwrap())
@@ -1009,9 +1091,12 @@ impl StackTracker {
         (x, y, self.op(OP_3DUP, 0, true, "OP_DUP").unwrap())
     }
 
-
-    pub fn get_value_from_table(&mut self, table: StackVariable, offset: Option<u32> ) -> StackVariable {
-        self.number(self.get_offset(table)-1 + offset.unwrap_or(0));
+    pub fn get_value_from_table(
+        &mut self,
+        table: StackVariable,
+        offset: Option<u32>,
+    ) -> StackVariable {
+        self.number(self.get_offset(table) - 1 + offset.unwrap_or(0));
         self.op_add();
         let v = self.op_pick();
         self.rename(v, &format!("from:({})", self.data.names[&table.id]));
@@ -1020,22 +1105,16 @@ impl StackTracker {
 
     pub fn debug(&mut self) {
         println!("Max stack size: {}", self.max_stack_size);
-        self.push_script(script!{});
-        print_execute_step(self, self.script.len()-1);
+        self.push_script(script! {});
+        print_execute_step(self, self.script.len() - 1);
     }
-
-
-
 }
-
-
 
 #[cfg(test)]
 mod tests {
 
-
     pub use bitcoin_script::{define_pushable, script};
-    
+
     define_pushable!();
     use super::{StackData, StackTracker, StackVariable};
 
@@ -1047,10 +1126,9 @@ mod tests {
         let mut stack = StackTracker::new();
         stack.number_u32(1234);
         stack.number_u32(1234);
-        stack.custom(script!{ {verify_n(8)} }, 2, false, 0, "verify");
+        stack.custom(script! { {verify_n(8)} }, 2, false, 0, "verify");
         stack.op_true();
         assert!(stack.run().success);
-
     }
 
     #[test]
@@ -1073,7 +1151,6 @@ mod tests {
         stack.repeat(1);
         stack.op_equalverify();
 
-
         let _ = stack.number(2);
         stack.repeat(2);
         stack.number(2);
@@ -1082,7 +1159,6 @@ mod tests {
         stack.op_add();
         stack.from_altstack();
         stack.op_equalverify();
-
 
         let _ = stack.number(1);
         stack.repeat(3);
@@ -1102,7 +1178,7 @@ mod tests {
         let y = stack.number_u32(2345);
         stack.move_var(x);
         stack.number_u32(1234);
-        stack.custom(script!{ {verify_n(8)} }, 2, false, 0, "verify");
+        stack.custom(script! { {verify_n(8)} }, 2, false, 0, "verify");
         stack.drop(y);
         stack.op_true();
         assert!(stack.run().success);
@@ -1117,7 +1193,7 @@ mod tests {
         let _ = stack.copy_var(x);
         let _ = stack.number_u32(1234);
         stack.debug();
-        stack.custom(script!{ {verify_n(8)} }, 2, false, 0, "verify");
+        stack.custom(script! { {verify_n(8)} }, 2, false, 0, "verify");
         stack.debug();
         stack.drop(y);
         stack.drop(x);
@@ -1141,10 +1217,9 @@ mod tests {
             OP_TRUE
         };
 
-        let (ret,_) = debug_script(script);
+        let (ret, _) = debug_script(script);
         assert!(ret.result().unwrap().success);
     }
-
 
     #[test]
     fn test_clear_definitions() {
@@ -1178,7 +1253,7 @@ mod tests {
             OP_TRUE
         };
 
-        let (ret,_) = debug_script(script);
+        let (ret, _) = debug_script(script);
         assert!(ret.result().unwrap().success);
     }
 
@@ -1200,13 +1275,12 @@ mod tests {
         };
 
         stack.debug();
-        let (ret,_) = debug_script(script);
+        let (ret, _) = debug_script(script);
         assert!(ret.result().unwrap().success);
     }
 
     #[test]
     fn test_equals() {
-
         //test without moving the last number
         let mut stack = StackTracker::new();
         let x = stack.number_u32(0x123456);
@@ -1230,10 +1304,7 @@ mod tests {
         stack.drop(x);
         stack.op_true();
         assert!(stack.run().success);
-
-
     }
-
 
     #[test]
     fn test_join() {
@@ -1241,10 +1312,9 @@ mod tests {
         let mut x = stack.number_u32(0xdeadbeaf);
         let _y = stack.number_u32(0x12345678);
         stack.join(&mut x);
-        let _  = stack.number_u32(0x00000000);
-        
-        stack.move_var(x);
+        let _ = stack.number_u32(0x00000000);
 
+        stack.move_var(x);
 
         let script = script! {
             { stack.get_script()}
@@ -1255,10 +1325,9 @@ mod tests {
             OP_TRUE
         };
 
-        let (ret,_) = debug_script(script);
+        let (ret, _) = debug_script(script);
         assert!(ret.result().unwrap().success);
     }
-
 
     #[test]
     fn test_join_in_stack() {
@@ -1325,7 +1394,7 @@ mod tests {
             OP_TRUE
         };
 
-        let (ret,_) = debug_script(script);
+        let (ret, _) = debug_script(script);
         assert!(ret.result().unwrap().success);
     }
 
@@ -1342,10 +1411,9 @@ mod tests {
         stack.op_true();
         assert!(stack.run().success);
 
-
         //two element tables
         let mut stack = StackTracker::new();
-        let x = stack.var(2, script!{ OP_15 OP_8}, "small table");
+        let x = stack.var(2, script! { OP_15 OP_8}, "small table");
 
         stack.number(0);
         stack.get_value_from_table(x, None);
@@ -1360,9 +1428,7 @@ mod tests {
         stack.drop(x);
         stack.op_true();
         assert!(stack.run().success);
-
     }
-
 
     #[test]
     fn test_redo_log() {
@@ -1384,7 +1450,6 @@ mod tests {
         let new_data = data.new_from_redo_height(data.redo_log.len());
         show_stack(&new_data, vec![]);
         show_altstack(&new_data, vec![]);
-
     }
 
     #[test]
@@ -1402,11 +1467,10 @@ mod tests {
         stack.op_equalverify();
 
         stack.drop(x);
-        
+
         stack.op_true();
 
         assert!(stack.run().success);
-
     }
 
     #[test]
@@ -1420,10 +1484,8 @@ mod tests {
         stack.op_equalverify();
 
         stack.drop(x);
-        
 
         assert!(stack.run().success);
-
     }
 
     #[test]
@@ -1441,9 +1503,7 @@ mod tests {
         stack.op_1add();
 
         assert!(stack.run().success);
-
     }
-
 
     #[test]
     fn test_op_2over() {
@@ -1465,7 +1525,6 @@ mod tests {
         stack.from_altstack();
 
         assert!(stack.run().success);
-
     }
 
     #[test]
@@ -1488,7 +1547,6 @@ mod tests {
         stack.op_true();
 
         assert!(stack.run().success);
-
     }
 
     #[test]
@@ -1514,7 +1572,6 @@ mod tests {
         stack.op_true();
 
         assert!(stack.run().success);
-
     }
 
     #[test]
@@ -1524,16 +1581,22 @@ mod tests {
         stack.number(1);
         stack.number(2);
         stack.debug();
-        stack.custom(script!{ 
-            OP_DUP
-            2
-            OP_EQUAL
-            OP_IF
-                OP_1ADD
-            OP_ELSE
-                OP_1SUB
-            OP_ENDIF
-        }, 1, true, 0, "cond");
+        stack.custom(
+            script! {
+                OP_DUP
+                2
+                OP_EQUAL
+                OP_IF
+                    OP_1ADD
+                OP_ELSE
+                    OP_1SUB
+                OP_ENDIF
+            },
+            1,
+            true,
+            0,
+            "cond",
+        );
 
         stack.debug();
         stack.number(3);
@@ -1542,10 +1605,9 @@ mod tests {
 
         stack.debug();
         assert!(stack.run().success);
-
     }
-   
-   #[test]
+
+    #[test]
     fn test_open_if() {
         let mut stack = StackTracker::new();
 
@@ -1569,10 +1631,9 @@ mod tests {
 
         stack.debug();
         assert!(stack.run().success);
-
     }
 
-   #[test]
+    #[test]
     fn test_open_if_debug() {
         let mut stack = StackTracker::new();
 
@@ -1598,20 +1659,18 @@ mod tests {
 
         stack.debug();
         assert!(stack.run().success);
-
     }
 
     #[test]
     fn test_debug_visualization() {
         let mut stack = StackTracker::new();
 
-        stack.custom(script!{ 1}, 0, false, 0, " ");
+        stack.custom(script! { 1}, 0, false, 0, " ");
         stack.define(1, "one var");
         stack.debug();
         stack.number(1);
         stack.op_equal();
         stack.debug();
-
     }
 
     #[test]
@@ -1624,7 +1683,6 @@ mod tests {
         stack.debug();
         stack.op_equal();
         assert!(stack.run().success);
-
     }
 
     #[test]
@@ -1637,9 +1695,7 @@ mod tests {
         stack.equals(x, true, y, true);
         stack.op_true();
         assert!(stack.run().success);
-
     }
-
 
     #[test]
     fn test_hex_as_nibble() {
@@ -1665,10 +1721,5 @@ mod tests {
         stack.debug();
         stack.op_equal();
         assert!(stack.run().success);
-
     }
-
-
-
-    
 }

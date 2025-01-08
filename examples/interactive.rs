@@ -1,10 +1,9 @@
-use bitcoin_script_stack::stack::StackTracker;
 #[cfg(feature = "interactive")]
 use bitcoin_script_stack::interactive::interactive;
+use bitcoin_script_stack::stack::StackTracker;
 
 #[allow(dead_code)]
 fn example(error: bool) -> StackTracker {
-
     let mut stack = StackTracker::new();
     stack.number(1);
     stack.number(10);
@@ -26,9 +25,8 @@ fn example(error: bool) -> StackTracker {
     stack
 }
 
-
 fn main() {
-    #[cfg(feature = "interactive")] 
+    #[cfg(feature = "interactive")]
     {
         interactive(&example(false));
         interactive(&example(true));

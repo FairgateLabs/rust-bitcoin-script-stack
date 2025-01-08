@@ -49,37 +49,35 @@ pub fn fromaltstack(n: u32) -> Script {
     }
 }
 
-pub fn number_to_byte(n: u32) -> Script { 
+pub fn number_to_byte(n: u32) -> Script {
     script! {
-       for i in (0..4).rev() { 
-            { (n >> (i * 8)) & 0xFF } 
-        } 
+       for i in (0..4).rev() {
+            { (n >> (i * 8)) & 0xFF }
+        }
     }
 }
 
-
-pub fn number_16_to_nibble(n: u16) -> Script { 
+pub fn number_16_to_nibble(n: u16) -> Script {
     script! {
-       for i in (0..4).rev() { 
-            { (n as u32 >> (i * 4)) & 0xF } 
-        } 
+       for i in (0..4).rev() {
+            { (n as u32 >> (i * 4)) & 0xF }
+        }
     }
 }
 
-pub fn number_to_nibble(n: u32) -> Script { 
+pub fn number_to_nibble(n: u32) -> Script {
     script! {
-       for i in (0..8).rev() { 
-            { (n >> (i * 4)) & 0xF } 
-        } 
+       for i in (0..8).rev() {
+            { (n >> (i * 4)) & 0xF }
+        }
     }
 }
 
-
-pub fn byte_to_nibble(n: u8) -> Script { 
+pub fn byte_to_nibble(n: u8) -> Script {
     script! {
-       for i in (0..2).rev() { 
-            { (n >> (i * 4)) & 0xF } 
-        } 
+       for i in (0..2).rev() {
+            { (n >> (i * 4)) & 0xF }
+        }
     }
 }
 
@@ -108,34 +106,41 @@ pub fn reverse_u32() -> Script {
     }
 }
 
-
 pub fn quot_and_modulo_big(stack: &mut StackTracker, number: u32, quot: u32, quotient: bool) {
     if quotient {
-
-        stack.custom(script! {
-            OP_DUP
-            { number }
-            OP_GREATERTHANOREQUAL
-            OP_IF
+        stack.custom(
+            script! {
+                OP_DUP
                 { number }
-                OP_SUB
-                { quot }
-            OP_ELSE
-                0
-            OP_ENDIF
-        }, 0, true, 0, "quotient");
-
+                OP_GREATERTHANOREQUAL
+                OP_IF
+                    { number }
+                    OP_SUB
+                    { quot }
+                OP_ELSE
+                    0
+                OP_ENDIF
+            },
+            0,
+            true,
+            0,
+            "quotient",
+        );
     } else {
-        stack.custom(script! {
-            OP_DUP
-            { number }
-            OP_GREATERTHANOREQUAL
-            OP_IF
+        stack.custom(
+            script! {
+                OP_DUP
                 { number }
-                OP_SUB
-            OP_ENDIF
-        }, 0, false, 0, "" );
+                OP_GREATERTHANOREQUAL
+                OP_IF
+                    { number }
+                    OP_SUB
+                OP_ENDIF
+            },
+            0,
+            false,
+            0,
+            "",
+        );
     }
-
 }
-
