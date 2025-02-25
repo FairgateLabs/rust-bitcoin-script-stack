@@ -453,8 +453,8 @@ impl StackTracker {
 
     pub fn from_altstack_joined(&mut self, count: u32, name: &str) -> StackVariable {
         assert!(count > 1, "from_altstack_joined requires count > 1");
-        let mut tmp = self.from_altstack_count(count);
-        self.join_count(&mut tmp[0], count - 1);
+        let tmp = self.from_altstack_count(count);
+        self.join_count(tmp[0], count - 1);
         self.rename(tmp[0], name);
         tmp[0]
     }
@@ -632,9 +632,9 @@ impl StackTracker {
         panic!("The var {:?} is not part of the stack", var);
     }
 
-    pub fn join(&mut self, var1: &mut StackVariable) {
+    pub fn join(&mut self, var1: StackVariable) {
         let len = self.data.stack.len();
-        let i = self.get_index_var(*var1);
+        let i = self.get_index_var(var1);
         assert!(
             i + 1 < len,
             "The variable {:?} is the last one on the stack, can't join.",
@@ -658,11 +658,11 @@ impl StackTracker {
         panic!("The depth {} is not valid", depth);
     }
 
-    pub fn join_count(&mut self, var: &mut StackVariable, count: u32) -> StackVariable {
+    pub fn join_count(&mut self, var: StackVariable, count: u32) -> StackVariable {
         for _ in 0..count {
             self.join(var)
         }
-        *var
+        var
     }
 
     //define the top of the stack as depth 1 (even though it's usually 0, but it's easier to understand)
@@ -673,11 +673,11 @@ impl StackTracker {
         name: Option<&str>,
     ) -> StackVariable {
         assert!(depth > 0, "The depth must be greater than 0");
-        let mut var = self.get_var(depth - 1);
+        let var = self.get_var(depth - 1);
         if let Some(name) = name {
             self.rename(var, name);
         }
-        self.join_count(&mut var, size.unwrap_or(depth) - 1)
+        self.join_count(var, size.unwrap_or(depth) - 1)
     }
 
     pub fn explode(&mut self, var: StackVariable) -> Vec<StackVariable> {
@@ -1309,9 +1309,9 @@ mod tests {
     #[test]
     fn test_join() {
         let mut stack = StackTracker::new();
-        let mut x = stack.number_u32(0xdeadbeaf);
+        let x = stack.number_u32(0xdeadbeaf);
         let _y = stack.number_u32(0x12345678);
-        stack.join(&mut x);
+        stack.join(x);
         let _ = stack.number_u32(0x00000000);
 
         stack.move_var(x);
