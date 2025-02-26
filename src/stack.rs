@@ -499,15 +499,17 @@ impl StackTracker {
     }
 
     // if var2 is going to be consumed and it is at the top of the stack it avoid moving it
-    pub fn equals(
+    fn equality(
         &mut self,
         var1: StackVariable,
         consume_1: bool,
         var2: StackVariable,
         consume_2: bool,
+        eq: bool,
     ) {
+        let size = self.get_size(var1);
         assert_eq!(
-            self.get_size(var1),
+            size,
             self.get_size(var2),
             "The variables {:?} and {:?} are not the same size",
             var1,
@@ -544,8 +546,48 @@ impl StackTracker {
             } else {
                 self.copy_var_sub_n(var2, self.get_size(var2) - i - 1);
             }
-            self.op_equalverify();
+
+            if eq {
+                self.op_equalverify();
+            } else {
+                self.op_equal();
+                if i == 0 {
+                    self.to_altstack();
+                } else {
+                    self.from_altstack();
+                    self.op_add();
+                    if i != size - 1 {
+                        self.to_altstack();
+                    }
+                }
+            }
         }
+
+        if !eq {
+            self.number(size);
+            self.op_numnotequal();
+            self.op_verify();
+        }
+    }
+
+    pub fn equals(
+        &mut self,
+        var1: StackVariable,
+        consume_1: bool,
+        var2: StackVariable,
+        consume_2: bool,
+    ) {
+        self.equality(var1, consume_1, var2, consume_2, true)
+    }
+
+    pub fn not_equals(
+        &mut self,
+        var1: StackVariable,
+        consume_1: bool,
+        var2: StackVariable,
+        consume_2: bool,
+    ) {
+        self.equality(var1, consume_1, var2, consume_2, false)
     }
 
     pub fn get_offset(&self, var: StackVariable) -> u32 {
@@ -1304,6 +1346,22 @@ mod tests {
         stack.drop(x);
         stack.op_true();
         assert!(stack.run().success);
+    }
+
+    #[test]
+    fn test_not_sequals() {
+        let mut stack = StackTracker::new();
+        let x = stack.number_u32(0x123456);
+        let y = stack.number_u32(0x123455);
+        stack.not_equals(x, true, y, true);
+        stack.op_true();
+        assert!(stack.run().success);
+
+        let mut stack = StackTracker::new();
+        let x = stack.number_u32(0x123456);
+        let y = stack.number_u32(0x123456);
+        stack.not_equals(x, true, y, true);
+        assert!(!stack.run().success);
     }
 
     #[test]
