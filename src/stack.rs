@@ -1083,6 +1083,13 @@ impl StackTracker {
         )
     }
 
+    pub fn number_u64(&mut self, value: u64) -> StackVariable {
+        let high = self.number_u32((value >> 32) as u32);
+        self.number_u32((value & 0xffff_ffff) as u32);
+        self.join(high);
+        high
+    }
+
     pub fn number_u16(&mut self, value: u16) -> StackVariable {
         self.var(
             4,
@@ -1177,6 +1184,19 @@ mod tests {
         stack.number_u32(1234);
         stack.number_u32(1234);
         stack.custom(script! { {verify_n(8)} }, 2, false, 0, "verify");
+        stack.op_true();
+        assert!(stack.run().success);
+    }
+
+    #[test]
+    fn test_u64() {
+        let mut stack = StackTracker::new();
+        let test = stack.number_u64(0x1234_5678_9abc_def0);
+
+        let high = stack.number_u32(0x1234_5678);
+        stack.number_u32(0x9abc_def0);
+        stack.join(high);
+        stack.equals(test, true, high, true);
         stack.op_true();
         assert!(stack.run().success);
     }
