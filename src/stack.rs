@@ -513,7 +513,7 @@ impl StackTracker {
         for i in 0..size {
             self.copy_var_sub_n(var, i);
             self.number(0);
-            self.number(15);
+            self.number(16);
             self.op_within();
             self.op_verify();
         }
@@ -1383,7 +1383,7 @@ mod tests {
         }
         {
             let mut stack = StackTracker::new();
-            let x = stack.number_u32(0x1234_4567);
+            let x = stack.number_u32(0x0234_456F);
             stack.verify_range_var_u4(x);
             stack.drop(x);
             stack.op_true();
