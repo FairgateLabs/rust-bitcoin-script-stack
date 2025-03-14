@@ -498,6 +498,27 @@ impl StackTracker {
         new_var
     }
 
+    //normalizes the value on the stack between ranges
+    pub fn normalize_u4(&mut self) -> StackVariable {
+        self.number(0);
+        self.op_max(); //if negative, it will be 0
+
+        self.number(15);
+        self.op_min() //if bigger than 15, it will be 15
+    }
+
+    //verifies the values are between boundaries (failing if not)
+    pub fn verify_range_var_u4(&mut self, var: StackVariable) {
+        let size = self.get_size(var);
+        for i in 0..size {
+            self.copy_var_sub_n(var, i);
+            self.number(0);
+            self.number(15);
+            self.op_within();
+            self.op_verify();
+        }
+    }
+
     // if var2 is going to be consumed and it is at the top of the stack it avoid moving it
     pub fn equality(
         &mut self,
@@ -1347,6 +1368,38 @@ mod tests {
         stack.debug();
         let (ret, _) = debug_script(script);
         assert!(ret.result().unwrap().success);
+    }
+
+    #[test]
+    fn test_sanitize() {
+        {
+            let mut stack = StackTracker::new();
+            let x = stack.numberi(-1);
+            stack.number(7);
+            stack.number(16);
+            stack.join_count(x, 2);
+            stack.verify_range_var_u4(x);
+            assert!(!stack.run().success);
+        }
+        {
+            let mut stack = StackTracker::new();
+            stack.numberi(-1);
+            stack.normalize_u4();
+            stack.number(0);
+            stack.op_equalverify();
+
+            stack.number(7);
+            stack.normalize_u4();
+            stack.number(7);
+            stack.op_equalverify();
+
+            stack.number(16);
+            stack.normalize_u4();
+            stack.number(15);
+            stack.op_equal();
+
+            assert!(stack.run().success);
+        }
     }
 
     #[test]
