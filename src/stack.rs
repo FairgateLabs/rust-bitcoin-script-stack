@@ -1383,6 +1383,14 @@ mod tests {
         }
         {
             let mut stack = StackTracker::new();
+            let x = stack.number_u32(0x1234_4567);
+            stack.verify_range_var_u4(x);
+            stack.drop(x);
+            stack.op_true();
+            assert!(stack.run().success);
+        }
+        {
+            let mut stack = StackTracker::new();
             stack.numberi(-1);
             stack.normalize_u4();
             stack.number(0);
