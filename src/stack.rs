@@ -520,6 +520,7 @@ impl StackTracker {
     }
 
     // if var2 is going to be consumed and it is at the top of the stack it avoid moving it
+    // if verify is false the result is returned in a variable
     pub fn equality(
         &mut self,
         var1: StackVariable,
@@ -528,7 +529,7 @@ impl StackTracker {
         consume_2: bool,
         eq: bool,
         verify: bool,
-    ) {
+    ) -> Option<StackVariable> {
         let size = self.get_size(var1);
         assert_eq!(
             size,
@@ -587,16 +588,19 @@ impl StackTracker {
 
         if eq && !verify {
             self.number(size);
-            self.op_equal();
+            return Some(self.op_equal());
         }
 
         if !eq {
             self.number(size);
-            self.op_numnotequal();
+            let ret = self.op_numnotequal();
             if verify {
                 self.op_verify();
+            } else {
+                return Some(ret);
             }
         }
+        None
     }
 
     pub fn equals(
@@ -606,7 +610,7 @@ impl StackTracker {
         var2: StackVariable,
         consume_2: bool,
     ) {
-        self.equality(var1, consume_1, var2, consume_2, true, true)
+        let _ = self.equality(var1, consume_1, var2, consume_2, true, true);
     }
 
     pub fn not_equal(
@@ -616,7 +620,7 @@ impl StackTracker {
         var2: StackVariable,
         consume_2: bool,
     ) {
-        self.equality(var1, consume_1, var2, consume_2, false, true)
+        let _ = self.equality(var1, consume_1, var2, consume_2, false, true);
     }
 
     pub fn get_offset(&self, var: StackVariable) -> u32 {
@@ -1458,13 +1462,29 @@ mod tests {
         let mut stack = StackTracker::new();
         let x = stack.number_u32(0x123456);
         let y = stack.number_u32(0x123456);
-        stack.equality(x, true, y, true, true, false);
+        let _result = stack.equality(x, true, y, true, true, false).unwrap();
+        assert!(stack.run().success);
+
+        let mut stack = StackTracker::new();
+        let x = stack.number_u32(0x123455);
+        let y = stack.number_u32(0x123456);
+        let _result = stack.equality(x, true, y, true, true, false).unwrap();
+        stack.number(0);
+        stack.op_equal();
         assert!(stack.run().success);
 
         let mut stack = StackTracker::new();
         let x = stack.number_u32(0x123456);
         let y = stack.number_u32(0x123455);
-        stack.equality(x, true, y, true, false, false);
+        let _result = stack.equality(x, true, y, true, false, false).unwrap();
+        assert!(stack.run().success);
+
+        let mut stack = StackTracker::new();
+        let x = stack.number_u32(0x123456);
+        let y = stack.number_u32(0x123456);
+        let _result = stack.equality(x, true, y, true, false, false).unwrap();
+        stack.number(0);
+        stack.op_equal();
         assert!(stack.run().success);
     }
 
