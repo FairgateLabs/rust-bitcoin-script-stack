@@ -1022,6 +1022,10 @@ impl StackTracker {
         (x, self.op(OP_2OVER, 0, true, &namey).unwrap())
     }
 
+    pub fn op_size(&mut self) -> StackVariable {
+        self.op(OP_SIZE, 0, true, "OP_SIZE()").unwrap()
+    }
+
     pub fn op_verify(&mut self) {
         let _ = self.op(OP_VERIFY, 1, false, "OP_VERIFY()");
     }
