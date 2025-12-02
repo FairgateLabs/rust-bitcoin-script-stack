@@ -10,7 +10,7 @@ repository = "https://github.com/FairgateLabs/rust-bitcoin-script-stack"
 
 [dependencies]
 bitcoin-script = { git = "https://github.com/FairgateLabs/rust-bitcoin-script", branch = "bitvmx" }
-bitcoin = "=0.32.6"
+bitcoin = "0.32.6"
 bitcoin-scriptexec = { git = "https://github.com/FairgateLabs/rust-bitcoin-scriptexec/", branch = "bitvmx" }
 bitcoin-opcode-utils = { git = "https://github.com/FairgateLabs/rust-bitcoin-opcode-utils/" }
 
