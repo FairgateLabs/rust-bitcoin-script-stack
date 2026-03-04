@@ -9,7 +9,7 @@ repository = "https://github.com/FairgateLabs/rust-bitcoin-script-stack"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitcoin-script = { git = "https://github.com/FairgateLabs/rust-bitcoin-script", branch = "bitvmx" }
+bitcoin-script = { git = "https://github.com/FairgateLabs/rust-bitcoin-script", branch = "merge-bitvm" }
 bitcoin = "0.32.6"
 bitcoin-scriptexec = { git = "https://github.com/FairgateLabs/rust-bitcoin-scriptexec/", branch = "bitvmx" }
 bitcoin-opcode-utils = { git = "https://github.com/FairgateLabs/rust-bitcoin-opcode-utils/" }

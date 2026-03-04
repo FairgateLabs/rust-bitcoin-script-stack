@@ -1,5 +1,4 @@
-pub use bitcoin_script::{define_pushable, script};
-define_pushable!();
+pub use bitcoin_script::script;
 pub use bitcoin::ScriptBuf as Script;
 
 use crate::stack::StackTracker;
@@ -10,7 +9,7 @@ pub fn move_from(address: u32, size: u32) -> Script {
             { address + size - 1 }
             OP_ROLL
         }
-    }
+    }.compile()
 }
 
 pub fn copy_from(address: u32, size: u32) -> Script {
@@ -19,7 +18,7 @@ pub fn copy_from(address: u32, size: u32) -> Script {
             { address + size - 1 }
             OP_PICK
         }
-    }
+    }.compile()
 }
 
 pub fn drop_count(n: u32) -> Script {
@@ -30,7 +29,7 @@ pub fn drop_count(n: u32) -> Script {
         if n & 1 == 1 {
             OP_DROP
         }
-    }
+    }.compile()
 }
 
 pub fn toaltstack(n: u32) -> Script {
@@ -38,7 +37,7 @@ pub fn toaltstack(n: u32) -> Script {
         for _ in 0..n {
             OP_TOALTSTACK
         }
-    }
+    }.compile()
 }
 
 pub fn fromaltstack(n: u32) -> Script {
@@ -46,7 +45,7 @@ pub fn fromaltstack(n: u32) -> Script {
         for _ in 0..n {
             OP_FROMALTSTACK
         }
-    }
+    }.compile()
 }
 
 pub fn number_to_byte(n: u32) -> Script {
@@ -54,7 +53,7 @@ pub fn number_to_byte(n: u32) -> Script {
        for i in (0..4).rev() {
             { (n >> (i * 8)) & 0xFF }
         }
-    }
+    }.compile()
 }
 
 pub fn number_16_to_nibble(n: u16) -> Script {
@@ -62,7 +61,7 @@ pub fn number_16_to_nibble(n: u16) -> Script {
        for i in (0..4).rev() {
             { (n as u32 >> (i * 4)) & 0xF }
         }
-    }
+    }.compile()
 }
 
 pub fn number_to_nibble(n: u32) -> Script {
@@ -70,7 +69,7 @@ pub fn number_to_nibble(n: u32) -> Script {
        for i in (0..8).rev() {
             { (n >> (i * 4)) & 0xF }
         }
-    }
+    }.compile()
 }
 
 pub fn byte_to_nibble(n: u8) -> Script {
@@ -78,7 +77,7 @@ pub fn byte_to_nibble(n: u8) -> Script {
        for i in (0..2).rev() {
             { (n >> (i * 4)) & 0xF }
         }
-    }
+    }.compile()
 }
 
 pub fn verify_n(n: u32) -> Script {
@@ -88,7 +87,7 @@ pub fn verify_n(n: u32) -> Script {
             OP_ROLL
             OP_EQUALVERIFY
         }
-    }
+    }.compile()
 }
 
 pub fn reverse_u32() -> Script {
@@ -103,7 +102,7 @@ pub fn reverse_u32() -> Script {
         OP_ROLL
         7
         OP_ROLL
-    }
+    }.compile()
 }
 
 pub fn quot_and_modulo_big(stack: &mut StackTracker, number: u32, quot: u32, quotient: bool) {
@@ -120,7 +119,7 @@ pub fn quot_and_modulo_big(stack: &mut StackTracker, number: u32, quot: u32, quo
                 OP_ELSE
                     0
                 OP_ENDIF
-            },
+            }.compile(),
             0,
             true,
             0,
@@ -136,7 +135,7 @@ pub fn quot_and_modulo_big(stack: &mut StackTracker, number: u32, quot: u32, quo
                     { number }
                     OP_SUB
                 OP_ENDIF
-            },
+            }.compile(),
             0,
             false,
             0,
