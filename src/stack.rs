@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use bitcoin::opcodes::all::*;
 use bitcoin::{opcodes::OP_TRUE, Opcode};
 
-pub use bitcoin_script::{define_pushable, script};
-define_pushable!();
+pub use bitcoin_script::script;
 pub use bitcoin::ScriptBuf as Script;
 
 use super::script_util::*;
@@ -270,7 +269,7 @@ impl StackTracker {
     }
 
     pub fn set_breakpoint(&mut self, name: &str) {
-        self.push_script(script! {});
+        self.push_script(script! {}.compile());
         self.breakpoint
             .push((self.script.len() as u32 - 1, name.to_string()));
     }
@@ -316,7 +315,7 @@ impl StackTracker {
         };
         if_true.op_drop();
         if_false.op_drop();
-        self.custom(script! { OP_IF }, 1, false, 0, "open_if");
+        self.custom(script! { OP_IF }.compile(), 1, false, 0, "open_if");
         (if_true, if_false)
     }
 
@@ -350,7 +349,7 @@ impl StackTracker {
                 OP_ELSE
                 { if_false.get_script_from(from)}
                 OP_ENDIF
-            },
+            }.compile(),
             consumes,
             output_vars,
             to_altstack,
@@ -464,7 +463,7 @@ impl StackTracker {
             for s in self.script.iter() {
                 { s.clone() }
             }
-        }
+        }.compile()
     }
 
     pub fn get_script_from(&self, from: usize) -> Script {
@@ -472,7 +471,7 @@ impl StackTracker {
             for s in self.script.iter().skip(from) {
                 { s.clone() }
             }
-        }
+        }.compile()
     }
 
     pub fn move_var(&mut self, var: StackVariable) -> StackVariable {
@@ -973,7 +972,7 @@ impl StackTracker {
         self.push(y);
         self.push(x);
         self.data.set_name(var, "OP_TUCK()");
-        self.push_script(script! {OP_TUCK});
+        self.push_script(script! {OP_TUCK}.compile());
         var
     }
 
@@ -1064,7 +1063,7 @@ impl StackTracker {
 
     pub fn hexstr(&mut self, value: &str) -> StackVariable {
         let bytes = Vec::from_hex(value).unwrap();
-        self.var(1, script! {{bytes}}, "hexdata")
+        self.var(1, script! {{bytes}}.compile(), "hexdata")
     }
 
     pub fn hexstr_as_nibbles(&mut self, value: &str) -> StackVariable {
@@ -1078,7 +1077,7 @@ impl StackTracker {
     }
 
     pub fn number(&mut self, value: u32) -> StackVariable {
-        self.var(1, script! {{value}}, &format!("number({:#x})", value))
+        self.var(1, script! {{value}}.compile(), &format!("number({:#x})", value))
     }
 
     pub fn repeat(&mut self, mut times: u32) -> Vec<StackVariable> {
@@ -1097,7 +1096,7 @@ impl StackTracker {
     }
 
     pub fn numberi(&mut self, value: i32) -> StackVariable {
-        self.var(1, script! {{value}}, &format!("number({:#x})", value))
+        self.var(1, script! {{value}}.compile(), &format!("number({:#x})", value))
     }
 
     pub fn byte(&mut self, value: u8) -> StackVariable {
@@ -1191,17 +1190,14 @@ impl StackTracker {
 
     pub fn debug(&mut self) {
         println!("Max stack size: {}", self.max_stack_size);
-        self.push_script(script! {});
+        self.push_script(script! {}.compile());
         print_execute_step(self, self.script.len() - 1);
     }
 }
 
 #[cfg(test)]
 mod tests {
-
-    pub use bitcoin_script::{define_pushable, script};
-
-    define_pushable!();
+    pub use bitcoin_script::script;
     use super::{StackData, StackTracker, StackVariable};
 
     use crate::debugger::{debug_script, show_altstack, show_stack};
@@ -1212,7 +1208,7 @@ mod tests {
         let mut stack = StackTracker::new();
         stack.number_u32(1234);
         stack.number_u32(1234);
-        stack.custom(script! { {verify_n(8)} }, 2, false, 0, "verify");
+        stack.custom(script! { {verify_n(8)} }.compile(), 2, false, 0, "verify");
         stack.op_true();
         assert!(stack.run().success);
     }
@@ -1277,7 +1273,7 @@ mod tests {
         let y = stack.number_u32(2345);
         stack.move_var(x);
         stack.number_u32(1234);
-        stack.custom(script! { {verify_n(8)} }, 2, false, 0, "verify");
+        stack.custom(script! { {verify_n(8)} }.compile(), 2, false, 0, "verify");
         stack.drop(y);
         stack.op_true();
         assert!(stack.run().success);
@@ -1292,7 +1288,7 @@ mod tests {
         let _ = stack.copy_var(x);
         let _ = stack.number_u32(1234);
         stack.debug();
-        stack.custom(script! { {verify_n(8)} }, 2, false, 0, "verify");
+        stack.custom(script! { {verify_n(8)} }.compile(), 2, false, 0, "verify");
         stack.debug();
         stack.drop(y);
         stack.drop(x);
@@ -1314,7 +1310,7 @@ mod tests {
             { verify_n(8) }
             { drop_count(8) }
             OP_TRUE
-        };
+        }.compile();
 
         let (ret, _) = debug_script(script);
         assert!(ret.result().unwrap().success);
@@ -1350,7 +1346,7 @@ mod tests {
             { verify_n(1) }
             { drop_count(8) }
             OP_TRUE
-        };
+        }.compile();
 
         let (ret, _) = debug_script(script);
         assert!(ret.result().unwrap().success);
@@ -1371,7 +1367,7 @@ mod tests {
             { verify_n(1) }
             { drop_count(6) }
             OP_TRUE
-        };
+        }.compile();
 
         stack.debug();
         let (ret, _) = debug_script(script);
@@ -1509,7 +1505,7 @@ mod tests {
             { verify_n(16) }
             { drop_count(8) }
             OP_TRUE
-        };
+        }.compile();
 
         let (ret, _) = debug_script(script);
         assert!(ret.result().unwrap().success);
@@ -1591,7 +1587,7 @@ mod tests {
             { verify_n(1) }
             { drop_count(7) }
             OP_TRUE
-        };
+        }.compile();
 
         let (ret, _) = debug_script(script);
         assert!(ret.result().unwrap().success);
@@ -1612,7 +1608,7 @@ mod tests {
 
         //two element tables
         let mut stack = StackTracker::new();
-        let x = stack.var(2, script! { OP_15 OP_8}, "small table");
+        let x = stack.var(2, script! { OP_15 OP_8}.compile(), "small table");
 
         stack.number(0);
         stack.get_value_from_table(x, None);
@@ -1790,7 +1786,7 @@ mod tests {
                 OP_ELSE
                     OP_1SUB
                 OP_ENDIF
-            },
+            }.compile(),
             1,
             true,
             0,
@@ -1864,7 +1860,7 @@ mod tests {
     fn test_debug_visualization() {
         let mut stack = StackTracker::new();
 
-        stack.custom(script! { 1}, 0, false, 0, " ");
+        stack.custom(script! { 1}.compile(), 0, false, 0, " ");
         stack.define(1, "one var");
         stack.debug();
         stack.number(1);

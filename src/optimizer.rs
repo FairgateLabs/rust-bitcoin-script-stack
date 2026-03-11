@@ -1,6 +1,5 @@
 use bitcoin::{script::Instruction, Opcode};
-pub use bitcoin_script::{define_pushable, script};
-define_pushable!();
+pub use bitcoin_script::script;
 use bitcoin::opcodes::all::*;
 pub use bitcoin::ScriptBuf as Script;
 
@@ -157,10 +156,6 @@ pub fn optimize(script: Script) -> Script {
 
 #[cfg(test)]
 mod tests {
-
-    pub use bitcoin_script::define_pushable;
-
-    define_pushable!();
     use crate::stack::StackTracker;
 
     use crate::debugger::debug_script;
