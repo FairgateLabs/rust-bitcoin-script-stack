@@ -70,23 +70,13 @@ pub fn debug_script(script: bitcoin::ScriptBuf) -> (Exec, String) {
 }
 
 pub fn convert_stack(stack: &Stack) -> Vec<String> {
-    let converted = (0..stack.len())
-        .map(|f| stack.get(f))
-        .map(|v| if v.is_empty() { vec![0] } else { v.clone() })
-        .collect::<Vec<Vec<u8>>>();
-
-    let hex_strings: Vec<String> = converted
-        .into_iter()
-        .map(|sub_vec| {
-            sub_vec
-                .iter()
-                .map(|byte| format!("{:x}", byte)) // Convert each byte to a hex string
-                .collect::<Vec<String>>() // Collect all hex strings into a vector
-                .join("") // Join all elements of the vector into a single string
+    (0..stack.len())
+        .map(|i| stack.get(i))
+        .map(|v| {
+            let bytes: &[u8] = if v.is_empty() { &[0] } else { &v };
+            bytes.iter().map(|byte| format!("{:x}", byte)).collect::<String>()
         })
-        .collect();
-
-    hex_strings
+        .collect()
 }
 
 pub fn print_execute_step(stack: &StackTracker, step_number: usize) {
@@ -123,8 +113,9 @@ pub fn execute_step(stack: &StackTracker, step_number: usize) -> StepResult {
 
     let with_error = result.result().as_ref().unwrap().error.is_some();
     let error = format!("{:?}", result.result().as_ref().unwrap().error);
-    let success =
-        step_number == stack.script.len() - 1 && result.result().as_ref().unwrap().success;
+    let success = !stack.script.is_empty()
+        && step_number == stack.script.len() - 1
+        && result.result().as_ref().unwrap().success;
 
     let converted = convert_stack(result.stack());
     let stack = show_stacks(&step_data, &step_data.stack, converted, false);
@@ -135,29 +126,29 @@ pub fn execute_step(stack: &StackTracker, step_number: usize) -> StepResult {
     StepResult::new(with_error, error, success, last, stack, altstack)
 }
 
+static UNKNOWN_NAME: &str = "unknown";
+
 pub fn show_stacks(
     data: &StackData,
     stack: &[StackVariable],
     mut real: Vec<String>,
     reverse: bool,
 ) -> Vec<String> {
-    let iter: Box<dyn Iterator<Item = &StackVariable>> = if reverse {
-        Box::new(stack.iter().rev())
-    } else {
-        Box::new(stack.iter())
-    };
+    let mut vars: Vec<&StackVariable> = stack.iter().collect();
     if reverse {
+        vars.reverse();
         real.reverse();
     }
 
-    let mut ret = Vec::new();
-    for var in iter {
+    let mut ret = Vec::with_capacity(vars.len());
+    for var in vars {
         let size = *data.sizes.get(&var.id()).unwrap_or(&0);
+        let name = data.names.get(&var.id()).map(|s| s.as_str()).unwrap_or(UNKNOWN_NAME);
         let data_item = format!(
             "id: {:<width$} | size: {:<width$} | name: {:<width_name$} | ",
             var.id(),
             size,
-            data.names.get(&var.id()).unwrap_or(&"unknown".to_string()),
+            name,
             width = 7,
             width_name = 20
         );
@@ -166,7 +157,7 @@ pub fn show_stacks(
             real_sub = real.iter().take(size as usize).cloned().collect();
             real.drain(0..size as usize);
         }
-        ret.push(format!("{} {}", data_item, real_sub).to_string());
+        ret.push(format!("{} {}", data_item, real_sub));
     }
     ret
 }

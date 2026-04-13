@@ -17,15 +17,19 @@ pub struct StackVariable {
 }
 
 impl StackVariable {
+    #[inline]
     pub fn new(id: u32) -> Self {
         StackVariable { id }
     }
+    #[inline]
     pub fn null() -> Self {
         StackVariable { id: 0 }
     }
+    #[inline]
     pub fn is_null(&self) -> bool {
         self.id == 0
     }
+    #[inline]
     pub fn id(&self) -> u32 {
         self.id
     }
@@ -55,6 +59,7 @@ pub struct StackData {
     pub(crate) sizes: HashMap<u32, u32>,
     redo_log: Vec<RedoOps>,
     with_redo_log: bool,
+    pub(crate) current_stack_size: u32,
 }
 
 impl StackData {
@@ -66,6 +71,7 @@ impl StackData {
             sizes: HashMap::new(),
             redo_log: Vec::new(),
             with_redo_log,
+            current_stack_size: 0,
         }
     }
 
@@ -77,10 +83,12 @@ impl StackData {
             sizes: self.sizes.clone(),
             redo_log: Vec::new(),
             with_redo_log: false,
+            current_stack_size: self.current_stack_size,
         }
     }
 
     pub fn push_stack(&mut self, var: StackVariable) {
+        self.current_stack_size += self.sizes.get(&var.id).copied().unwrap_or(0);
         self.stack.push(var);
         if self.with_redo_log {
             self.redo_log.push(RedoOps::PushStack(var));
@@ -98,7 +106,9 @@ impl StackData {
         if self.with_redo_log {
             self.redo_log.push(RedoOps::PopStack);
         }
-        self.stack.pop().unwrap()
+        let var = self.stack.pop().unwrap();
+        self.current_stack_size -= self.sizes.get(&var.id).copied().unwrap_or(0);
+        var
     }
 
     pub fn pop_altstack(&mut self) -> StackVariable {
@@ -137,13 +147,18 @@ impl StackData {
     }
 
     pub fn remove_var(&mut self, var: StackVariable) {
+        let old_len = self.stack.len();
         self.stack.retain(|x| x.id != var.id);
+        if self.stack.len() < old_len {
+            self.current_stack_size -= self.sizes.get(&var.id).copied().unwrap_or(0);
+        }
         if self.with_redo_log {
             self.redo_log.push(RedoOps::RemoveVar(var));
         }
     }
 
     pub fn insert_var(&mut self, pos: usize, var: StackVariable) {
+        self.current_stack_size += self.sizes.get(&var.id).copied().unwrap_or(0);
         self.stack.insert(pos, var);
         if self.with_redo_log {
             self.redo_log.push(RedoOps::InsertVar(pos, var));
@@ -154,6 +169,7 @@ impl StackData {
         let id = self.stack[idx].id;
         let size = self.sizes.get_mut(&id).unwrap();
         *size += next_size;
+        self.current_stack_size += next_size;
         if self.with_redo_log {
             self.redo_log.push(RedoOps::IncreaseSize(idx, next_size));
         }
@@ -162,6 +178,7 @@ impl StackData {
     pub fn decrease_size(&mut self, var: StackVariable) {
         let size = self.sizes.get_mut(&var.id).unwrap();
         *size -= 1;
+        self.current_stack_size -= 1;
         if self.with_redo_log {
             self.redo_log.push(RedoOps::DecreaseSize(var));
         }
@@ -253,12 +270,7 @@ impl StackTracker {
 
     fn push(&mut self, var: StackVariable) {
         self.data.push_stack(var);
-        let totalsize = self
-            .data
-            .stack
-            .iter()
-            .fold(0, |acc, f| acc + self.get_size(*f));
-        self.max_stack_size = self.max_stack_size.max(totalsize);
+        self.max_stack_size = self.max_stack_size.max(self.data.current_stack_size);
     }
 
     fn push_script(&mut self, script: Script) {
@@ -634,7 +646,14 @@ impl StackTracker {
     }
 
     fn get_var_from_stack(&self, depth: u32) -> StackVariable {
-        self.data.stack[self.data.stack.len() - 1 - depth as usize]
+        let len = self.data.stack.len();
+        assert!(
+            (depth as usize) < len,
+            "depth {} out of bounds, stack has {} entries",
+            depth,
+            len
+        );
+        self.data.stack[len - 1 - depth as usize]
     }
 
     pub fn get_var_name(&self, var: StackVariable) -> String {
@@ -647,6 +666,7 @@ impl StackTracker {
     }
 
     pub fn run(&self) -> StepResult {
+        assert!(!self.script.is_empty(), "Cannot run an empty script");
         execute_step(self, self.script.len() - 1)
     }
 
@@ -660,8 +680,15 @@ impl StackTracker {
 
     pub fn copy_var_sub_n(&mut self, var: StackVariable, n: u32) -> StackVariable {
         let offset = self.get_offset(var);
+        let size = self.get_size(var);
+        assert!(
+            n < size,
+            "n={} must be less than variable size={} in copy_var_sub_n",
+            n,
+            size
+        );
         let var = self.get_var(offset);
-        let offset_n = offset + self.get_size(var) - 1 - n;
+        let offset_n = offset + size - 1 - n;
         let name = self.get_var_name(var);
 
         let new_var = StackVariable::new(self.next_counter());
@@ -746,8 +773,14 @@ impl StackTracker {
         count: Option<u32>,
         name: Option<&str>,
     ) -> StackVariable {
-        assert!(depth > 0, "The depth must be greater than 0");
-        let var = self.data.stack[self.data.stack.len() - depth as usize];
+        let len = self.data.stack.len();
+        assert!(
+            depth > 0 && (depth as usize) <= len,
+            "depth {} out of bounds for stack of length {}",
+            depth,
+            len
+        );
+        let var = self.data.stack[len - depth as usize];
         if let Some(name) = name {
             self.rename(var, name);
         }
@@ -1916,5 +1949,40 @@ mod tests {
         stack.debug();
         stack.op_equal();
         assert!(stack.run().success);
+    }
+
+    #[test]
+    #[should_panic(expected = "depth 10 out of bounds, stack has 2 entries")]
+    fn test_get_var_from_stack_out_of_bounds_panics() {
+        let mut stack = StackTracker::new();
+        stack.number(1);
+        stack.number(2);
+        stack.get_var_from_stack(10);
+    }
+
+    #[test]
+    #[should_panic(expected = "depth 10 out of bounds for stack of length 2")]
+    fn test_join_in_stack_out_of_bounds_panics() {
+        let mut stack = StackTracker::new();
+        stack.number(1);
+        stack.number(2);
+        stack.join_in_stack(10, None, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "n=99 must be less than variable size=8")]
+    fn test_copy_var_sub_n_out_of_bounds_panics() {
+        let mut stack = StackTracker::new();
+        let v = stack.number_u32(0x12345678);
+        stack.copy_var_sub_n(v, 99);
+    }
+
+    #[test]
+    fn test_max_stack_size_tracking() {
+        let mut stack = StackTracker::new();
+        for _ in 0..100 {
+            stack.number(0);
+        }
+        assert_eq!(stack.get_max_stack_size(), 100);
     }
 }

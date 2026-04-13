@@ -30,9 +30,11 @@ fn show_command(stdout: &mut Stdout, command: &str, help: &str) {
     .unwrap();
 }
 
+const DEFAULT_TERMINAL_WIDTH: u16 = 80;
+
 fn print_cut_text(text: &str) {
     let mut stdout = stdout();
-    let (width, _) = terminal_size().unwrap_or((80, 0)); // Get terminal dimensions (width and height)
+    let (width, _) = terminal_size().unwrap_or((DEFAULT_TERMINAL_WIDTH, 0)); // Get terminal dimensions (width and height)
 
     // Cut the string to fit the terminal width, if necessary
     let cut_text = if text.len() as u16 > width {

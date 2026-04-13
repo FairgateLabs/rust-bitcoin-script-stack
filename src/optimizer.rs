@@ -94,7 +94,7 @@ fn replace(instructions: &mut Vec<Instruction>, mut i: usize, count: usize) -> u
             1 => Instruction::Op(OP_DUP),
             2 => Instruction::Op(OP_2DUP),
             3 => Instruction::Op(OP_3DUP),
-            _ => panic!("unexpected op"),
+            _ => unreachable!("unexpected op code {} in replace table", op),
         };
         i += 1;
     }
